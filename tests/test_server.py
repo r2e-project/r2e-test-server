@@ -74,10 +74,26 @@ class TestByteCodeGlobalsFinder(unittest.TestCase):
 
 '''
 
+gpt4_codegen = '''def get_funclass_globals(
+    func_class_ast: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef,
+) -> list[str]:
+    """
+    Extract all the global variables accessed in the function or class.
+    It uses the bytecode to extract the global variables by:
+        - Finding the LOAD_CONST instructions.
+        - Finding the global variables in the constants using LOAD_GLOBAL.
+    :param func_class_ast: Union[ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef]
+    :return: list[str] - list of global variables accessed
+    """
+    module_ast = build_ast(ast.unparse(func_class_ast))
+    code_obj = func_class_ast.body[0].body[0].value.code if isinstance(func_class_ast, ast.ClassDef) else func_class_ast.body[0].value.code
+    return handle_const_code(module_ast, code_obj)
+'''
+
 
 class TestR2EService(unittest.TestCase):
 
-    def test_setup_repo(self):
+    def test_self_equiv(self):
         service = R2EService()
         data = {"repo_name": "r2e-internal", "repo_path": "../r2e-internal"}
         data = json.dumps(data)
@@ -96,6 +112,74 @@ class TestR2EService(unittest.TestCase):
         service.setup_test(data)
 
         out = service.setup()
+        print(out)
+
+        out = service.exposed_execute("submit")
+        print(out)
+
+    def test_gpt4_codegen(self):
+        service = R2EService()
+        data = {"repo_name": "r2e-internal", "repo_path": "../r2e-internal"}
+        data = json.dumps(data)
+        service.setup_repo(data)
+
+        data = {
+            "function_name": "get_funclass_globals",
+            "file_path": "../r2e-internal/r2e/pat/dependency_slicer/globals_finder/bytecode_globals.py",
+            "function_code": function_code,
+        }
+        data = json.dumps(data)
+        service.setup_function(data)
+
+        data = {"generated_tests": {"test_1": test}}
+        data = json.dumps(data)
+        service.setup_test(data)
+
+        out = service.setup()
+        print(out)
+
+        out = service.exposed_execute(gpt4_codegen)
+        print(out)
+
+        out = service.exposed_execute("submit")
+        print(out)
+
+    def test_gpt4_agenti(self):
+        service = R2EService()
+        data = {"repo_name": "r2e-internal", "repo_path": "../r2e-internal"}
+        data = json.dumps(data)
+        service.setup_repo(data)
+
+        data = {
+            "function_name": "get_funclass_globals",
+            "file_path": "../r2e-internal/r2e/pat/dependency_slicer/globals_finder/bytecode_globals.py",
+            "function_code": function_code,
+        }
+        data = json.dumps(data)
+        service.setup_function(data)
+
+        data = {"generated_tests": {"test_1": test}}
+        data = json.dumps(data)
+        service.setup_test(data)
+
+        out = service.setup()
+        print(out)
+
+        out = service.exposed_execute(f"code = 'def f(): return a+b'")
+        print(out)
+
+        out = service.exposed_execute(f"code_ast = ast.parse(code)")
+        print(out)
+
+        out = service.exposed_execute(
+            f"code_obj = dis.Bytecode(compile(code, '<string>', 'exec'))"
+        )
+        print(out)
+
+        out = service.exposed_execute(f"handle_const_code(code_ast, code_obj)")
+        print(out)
+
+        out = service.exposed_execute(gpt4_codegen)
         print(out)
 
         out = service.exposed_execute("submit")

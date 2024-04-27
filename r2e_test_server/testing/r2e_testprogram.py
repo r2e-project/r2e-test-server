@@ -222,7 +222,7 @@ class R2ETestProgram(object):
         sys.modules[module_name] = module
         return module
 
-    def compile_and_exec(self, code: str, nspace) -> Any:
+    def compile_and_exec(self, code: str, nspace=None) -> Any:
         """Compile and execute code in a namespace."""
         compiled_code = compile(code, "<string>", "exec")
         if nspace is None:
