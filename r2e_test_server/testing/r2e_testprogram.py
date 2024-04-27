@@ -69,10 +69,6 @@ class R2ETestProgram(object):
         fut_function = self.get_fut_function()
 
         self.ref_name = f"reference_{self.fut_name}"
-        ref_function = self.setupRef(
-            self.fut_name, fut_function, self.fut_module, self.ref_name
-        )
-
         ref_function = FunctionType(
             fut_function.__code__,
             fut_function.__globals__,
