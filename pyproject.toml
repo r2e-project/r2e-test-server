@@ -11,6 +11,8 @@ rpyc = "^6.0.0"
 coverage = "^7.5.0"
 pyright = "^1.1.360"
 
+[tool.pyright]
+reportMissingTypeStubs = false
 
 [build-system]
 requires = ["poetry-core"]
