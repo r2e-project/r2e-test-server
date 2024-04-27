@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "r2e-test-server"
+version = "0.1.0"
+description = "Test Server For R2E"
+authors = ["Naman Jain <naman1205jain@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+rpyc = "^6.0.0"
+coverage = "^7.5.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
