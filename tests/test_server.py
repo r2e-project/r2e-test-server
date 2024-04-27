@@ -117,7 +117,6 @@ class TestR2EService(unittest.TestCase):
 
         out = service.exposed_execute("submit")
         self.assertEqual(out["output"], "")
-        # self.assertEqual(out["error"], "")
         logs = json.loads(out["logs"])
         self.assertTrue(logs["run_tests_logs"]["test_1"]["valid"])
 
@@ -149,7 +148,6 @@ class TestR2EService(unittest.TestCase):
 
         out = service.exposed_execute("submit")
         self.assertEqual(out["output"], "")
-        # self.assertEqual(out["error"], "")
         logs = json.loads(out["logs"])
         self.assertFalse(logs["run_tests_logs"]["test_1"]["valid"])
 
@@ -214,6 +212,45 @@ class TestR2EService(unittest.TestCase):
 
         out = service.exposed_execute("submit")
         self.assertEqual(out["output"], "")
-        # self.assertEqual(out["error"], "")
+        logs = json.loads(out["logs"])
+        self.assertTrue(logs["run_tests_logs"]["test_1"]["valid"])
+
+    def test_gpt4_repair_codegen(self):
+        service = R2EService()
+        data = {"repo_name": "r2e-internal", "repo_path": "../r2e-internal"}
+        data = json.dumps(data)
+        service.setup_repo(data)
+
+        data = {
+            "function_name": "get_funclass_globals",
+            "file_path": "../r2e-internal/r2e/pat/dependency_slicer/globals_finder/bytecode_globals.py",
+            "function_code": function_code,
+        }
+        data = json.dumps(data)
+        service.setup_function(data)
+
+        data = {"generated_tests": {"test_1": test}}
+        data = json.dumps(data)
+        service.setup_test(data)
+
+        out = service.setup()
+        self.assertEqual(out["output"], "")
+        self.assertEqual(out["error"], "")
+
+        out = service.exposed_execute(gpt4_codegen)
+        self.assertEqual(out["output"], "")
+        self.assertEqual(out["error"], "")
+
+        out = service.exposed_execute("submit")
+        self.assertEqual(out["output"], "")
+        logs = json.loads(out["logs"])
+        self.assertFalse(logs["run_tests_logs"]["test_1"]["valid"])
+
+        out = service.exposed_execute(function_code)
+        self.assertEqual(out["output"], "")
+        self.assertEqual(out["error"], "")
+
+        out = service.exposed_execute("submit")
+        self.assertEqual(out["output"], "")
         logs = json.loads(out["logs"])
         self.assertTrue(logs["run_tests_logs"]["test_1"]["valid"])
