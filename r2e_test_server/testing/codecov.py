@@ -13,6 +13,9 @@ class R2ECodeCoverage(object):
         self.fut_name = fut_name
 
     def report_coverage(self):
+        if not self.source_exists():
+            return {}
+
         self.load_coverage_data()
         self.limit_data_to_target_source()
 
@@ -75,11 +78,6 @@ class R2ECodeCoverage(object):
         self.missing_branches: dict = analysis.missing_branch_arcs()
         self.executed_branches: dict = analysis.executed_branch_arcs()
 
-        # set FUT's first and last line
-        lines_info = inspect.getsourcelines(getattr(self.fut_module, self.fut_name))
-        self.fut_first_line = lines_info[1]
-        self.fut_last_line = self.fut_first_line + len(lines_info[0]) - 1
-
     def limit_data_to_target_source(self):
         """Filter the coverage data to only the FUT's source code."""
         line_filter_func = (
@@ -107,8 +105,22 @@ class R2ECodeCoverage(object):
 
     # helper functions
 
-    def filter_lines_dict(self, data, filter_func):
+    def filter_lines_dict(self, data, filter_func) -> dict:
+        """Apply a filter function to a dictionary of items."""
         return dict(filter(filter_func, data.items()))
 
-    def filter_lines_list(self, data, filter_func):
+    def filter_lines_list(self, data, filter_func) -> list:
+        """Apply a filter function to a list of items."""
         return list(filter(filter_func, data))
+
+    def source_exists(self) -> bool:
+        """Check if the source code exists in a file."""
+        try:
+            lines_info = inspect.getsourcelines(getattr(self.fut_module, self.fut_name))
+        except OSError:
+            return False
+
+        # set FUT's first and last line, if exists
+        self.fut_first_line = lines_info[1]
+        self.fut_last_line = self.fut_first_line + len(lines_info[0]) - 1
+        return True
