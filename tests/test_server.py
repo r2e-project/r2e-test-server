@@ -102,7 +102,6 @@ class TestR2EService(unittest.TestCase):
         data = {
             "function_name": "get_funclass_globals",
             "file_path": "../r2e-internal/r2e/pat/dependency_slicer/globals_finder/bytecode_globals.py",
-            "function_code": function_code,
         }
         data = json.dumps(data)
         service.setup_function(data)
@@ -129,7 +128,6 @@ class TestR2EService(unittest.TestCase):
         data = {
             "function_name": "get_funclass_globals",
             "file_path": "../r2e-internal/r2e/pat/dependency_slicer/globals_finder/bytecode_globals.py",
-            "function_code": function_code,
         }
         data = json.dumps(data)
         service.setup_function(data)
@@ -160,7 +158,6 @@ class TestR2EService(unittest.TestCase):
         data = {
             "function_name": "get_funclass_globals",
             "file_path": "../r2e-internal/r2e/pat/dependency_slicer/globals_finder/bytecode_globals.py",
-            "function_code": function_code,
         }
         data = json.dumps(data)
         service.setup_function(data)

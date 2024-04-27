@@ -46,7 +46,6 @@ class R2EService(rpyc.Service):
         data_dict = json.loads(data)
         self.function_name: str = data_dict["function_name"]
         self.file_path: str = data_dict["file_path"]
-        self.function_code: str = data_dict["function_code"]
 
     def setup_test(self, data: str):
         data_dict = json.loads(data)
@@ -62,7 +61,6 @@ class R2EService(rpyc.Service):
                     self.repo_path,
                     self.function_name,
                     self.file_path,
-                    self.function_code,
                     self.generated_tests,
                 )
 
