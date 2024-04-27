@@ -103,7 +103,8 @@ class R2ETestProgram(object):
 
         # run tests
         self.runTests(nspace=globals().copy())
-        instrumenter.dump_logs("logs.json")
+
+        return instrumenter.get_logs()
 
     def buildNamespace(
         self,

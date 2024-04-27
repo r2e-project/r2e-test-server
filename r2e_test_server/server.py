@@ -9,6 +9,24 @@ from rpyc.utils.server import ThreadPoolServer
 from r2e_test_server.testing.r2e_testprogram import R2ETestProgram
 
 
+class CaptureOutput:
+    def __init__(self, stdout=None, stderr=None):
+        self._stdout = stdout or sys.stdout
+        self._stderr = stderr or sys.stderr
+
+    def __enter__(self):
+        self.old_stdout, self.old_stderr = sys.stdout, sys.stderr
+        self.old_stdout.flush()
+        self.old_stderr.flush()
+        sys.stdout, sys.stderr = self._stdout, self._stderr
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self._stdout.flush()
+        self._stderr.flush()
+        sys.stdout = self.old_stdout
+        sys.stderr = self.old_stderr
+
+
 class MyService(rpyc.Service):
     def __init__(self):
         pass
@@ -36,27 +54,20 @@ class MyService(rpyc.Service):
 
     def setup(self):
         try:
-            # Capture the standard output and standard error
-            output_buffer = StringIO()
-            error_buffer = StringIO()
-            sys.stdout = output_buffer
-            sys.stderr = error_buffer
+            stdout_buffer = StringIO()
+            stderr_buffer = StringIO()
+            with CaptureOutput(stdout=stdout_buffer, stderr=stderr_buffer):
+                self.r2e_test_program = R2ETestProgram(
+                    self.repo_name,
+                    self.repo_path,
+                    self.function_name,
+                    self.file_path,
+                    self.function_code,
+                    self.generated_tests,
+                )
 
-            # setup the test program
-            self.r2e_test_program = R2ETestProgram(
-                self.repo_name,
-                self.repo_path,
-                self.function_name,
-                self.file_path,
-                self.function_code,
-                self.generated_tests,
-            )
-
-            # Restore the standard output and standard error and get the captured output
-            sys.stdout = sys.__stdout__
-            sys.stderr = sys.__stderr__
-            output = output_buffer.getvalue().strip()
-            error = error_buffer.getvalue().strip()
+            output = stdout_buffer.getvalue().strip()
+            error = stderr_buffer.getvalue().strip()
 
             return {"output": output, "error": error}
 
@@ -64,12 +75,43 @@ class MyService(rpyc.Service):
             traceback_message = traceback.format_exc()
             return {"error": f"Error: {traceback_message}\n\nSmall Error: {repr(e)}"}
 
-    def exposed_execute(self, command):
+    def exposed_execute(self, command: str):
         command = command.strip()
         if command == "submit":
-            pass
+            self.r2e_test_program.submit()
+            try:
+                stdout_buffer = StringIO()
+                stderr_buffer = StringIO()
+                with CaptureOutput(stdout=stdout_buffer, stderr=stderr_buffer):
+                    logs = self.r2e_test_program.submit()
+
+                output = stdout_buffer.getvalue().strip()
+                error = stderr_buffer.getvalue().strip()
+
+                return {"output": output, "error": error, "logs": logs}
+            except Exception as e:
+                traceback_message = traceback.format_exc()
+                return {
+                    "error": f"Error: {traceback_message}\n\nSmall Error: {repr(e)}"
+                }
+
         else:
-            pass
+            try:
+                stdout_buffer = StringIO()
+                stderr_buffer = StringIO()
+                with CaptureOutput(stdout=stdout_buffer, stderr=stderr_buffer):
+                    self.r2e_test_program.compile_and_exec(command)
+
+                output = stdout_buffer.getvalue().strip()
+                error = stderr_buffer.getvalue().strip()
+
+                return {"output": output, "error": error}
+
+            except Exception as e:
+                traceback_message = traceback.format_exc()
+                return {
+                    "error": f"Error: {traceback_message}\n\nSmall Error: {repr(e)}"
+                }
 
 
 def main(port: int):

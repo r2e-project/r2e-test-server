@@ -44,7 +44,7 @@ class CaptureArgsInstrumenter(Instrumenter):
             }
         )
 
-    def dump_logs(self, file_path: str):
+    def get_logs(self):
         logs = []
         for captured_args in self.captured_args_list:
 
@@ -58,6 +58,9 @@ class CaptureArgsInstrumenter(Instrumenter):
             )
 
             logs.append(captured_args)
+
+    def dump_logs(self, file_path: str):
+        logs = self.get_logs()
 
         with open(file_path, "w") as f:
             json.dump(logs, f, indent=4, default=Serializers.serialize_default)
