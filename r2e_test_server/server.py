@@ -27,7 +27,7 @@ class CaptureOutput:
         sys.stderr = self.old_stderr
 
 
-class MyService(rpyc.Service):
+class R2EService(rpyc.Service):
     def __init__(self):
         pass
 
@@ -103,7 +103,7 @@ class MyService(rpyc.Service):
 
 
 def main(port: int):
-    server = ThreadPoolServer(MyService(), port=port)
+    server = ThreadPoolServer(R2EService(), port=port)
     server.start()
 
 
