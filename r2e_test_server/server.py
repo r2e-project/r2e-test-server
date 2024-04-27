@@ -38,19 +38,19 @@ class R2EService(rpyc.Service):
         pass
 
     def setup_repo(self, data: str):
-        data = json.loads(data)
-        self.repo_name: str = data["repo_name"]  # type: ignore
-        self.repo_path: str = data["repo_path"]  # type: ignore
+        data_dict = json.loads(data)
+        self.repo_name: str = data_dict["repo_name"]
+        self.repo_path: str = data_dict["repo_path"]
 
     def setup_function(self, data: str):
-        data = json.loads(data)
-        self.function_name: str = data["function_name"]  # type: ignore
-        self.file_path: str = data["file_path"]  # type: ignore
-        self.function_code: str = data["function_code"]  # type: ignore
+        data_dict = json.loads(data)
+        self.function_name: str = data_dict["function_name"]
+        self.file_path: str = data_dict["file_path"]
+        self.function_code: str = data_dict["function_code"]
 
     def setup_test(self, data: str):
-        data = json.loads(data)
-        self.generated_tests: dict[str, str] = data["generated_tests"]  # type: ignore
+        data_dict = json.loads(data)
+        self.generated_tests: dict[str, str] = data_dict["generated_tests"]
 
     def setup(self):
         try:
