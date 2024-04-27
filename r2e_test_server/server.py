@@ -76,42 +76,30 @@ class MyService(rpyc.Service):
             return {"error": f"Error: {traceback_message}\n\nSmall Error: {repr(e)}"}
 
     def exposed_execute(self, command: str):
-        command = command.strip()
-        if command == "submit":
-            self.r2e_test_program.submit()
-            try:
-                stdout_buffer = StringIO()
-                stderr_buffer = StringIO()
-                with CaptureOutput(stdout=stdout_buffer, stderr=stderr_buffer):
+        stdout_buffer = StringIO()
+        stderr_buffer = StringIO()
+        try:
+            with CaptureOutput(stdout=stdout_buffer, stderr=stderr_buffer):
+                command = command.strip()
+                if command == "submit":
+                    self.r2e_test_program.submit()
                     logs = self.r2e_test_program.submit()
 
-                output = stdout_buffer.getvalue().strip()
-                error = stderr_buffer.getvalue().strip()
+                    output = stdout_buffer.getvalue().strip()
+                    error = stderr_buffer.getvalue().strip()
 
-                return {"output": output, "error": error, "logs": logs}
-            except Exception as e:
-                traceback_message = traceback.format_exc()
-                return {
-                    "error": f"Error: {traceback_message}\n\nSmall Error: {repr(e)}"
-                }
-
-        else:
-            try:
-                stdout_buffer = StringIO()
-                stderr_buffer = StringIO()
-                with CaptureOutput(stdout=stdout_buffer, stderr=stderr_buffer):
+                    return {"output": output, "error": error, "logs": logs}
+                else:
                     self.r2e_test_program.compile_and_exec(command)
 
-                output = stdout_buffer.getvalue().strip()
-                error = stderr_buffer.getvalue().strip()
+                    output = stdout_buffer.getvalue().strip()
+                    error = stderr_buffer.getvalue().strip()
 
-                return {"output": output, "error": error}
+                    return {"output": output, "error": error}
 
-            except Exception as e:
-                traceback_message = traceback.format_exc()
-                return {
-                    "error": f"Error: {traceback_message}\n\nSmall Error: {repr(e)}"
-                }
+        except Exception as e:
+            traceback_message = traceback.format_exc()
+            return {"error": f"Error: {traceback_message}\n\nSmall Error: {repr(e)}"}
 
 
 def main(port: int):
