@@ -89,7 +89,6 @@ class R2EService(rpyc.Service):
                     return {"output": output, "error": error, "logs": logs}
                 else:
                     self.r2e_test_program.compile_and_exec(command)
-
                     output = stdout_buffer.getvalue().strip()
                     error = stderr_buffer.getvalue().strip()
 

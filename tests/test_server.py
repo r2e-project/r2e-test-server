@@ -1,5 +1,4 @@
 import json
-
 import unittest
 
 from r2e_test_server.server import R2EService
@@ -46,6 +45,7 @@ function_code = '''def get_funclass_globals(
 
 test = '''
 import ast
+import unittest
 from fut_module import get_funclass_globals, ref_get_funclass_globals
 
 code = """def f():
@@ -69,7 +69,7 @@ class TestByteCodeGlobalsFinder(unittest.TestCase):
     def test1(self):
         func_ast = ast.parse(code).body[0]
         global_vars = get_funclass_globals(func_ast)
-        ref_global_vars = ref_get_funclass_globals(func_ast)
+        ref_global_vars = reference_get_funclass_globals(func_ast)
         self.assertEqual(global_vars, ref_global_vars)
 
 '''
