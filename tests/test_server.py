@@ -176,10 +176,22 @@ class TestR2EService(unittest.TestCase):
         )
         print(out)
 
-        out = service.exposed_execute(f"handle_const_code(code_ast, code_obj)")
+        out = service.exposed_execute("symbols = []")
         print(out)
 
-        out = service.exposed_execute(gpt4_codegen)
+        out = service.exposed_execute(
+            """for instr in code_obj: 
+                    if instr.opname == "LOAD_CONST":
+                        if isinstance(instr.argval, types.CodeType):
+                            const_code = instr.argval
+                            symbols.extend(handle_const_code(code_ast, const_code))"""
+        )
+        print(out)
+        print(service.exposed_execute("print(symbols)"))
+        print(out["output"])  # simulating: debugging
+
+        fixed_gpt_code = function_code  # simulating: new attempt to fix the code
+        out = service.exposed_execute(fixed_gpt_code)
         print(out)
 
         out = service.exposed_execute("submit")
