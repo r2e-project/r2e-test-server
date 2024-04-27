@@ -82,9 +82,7 @@ class R2EService(rpyc.Service):
             with CaptureOutput(stdout=stdout_buffer, stderr=stderr_buffer):
                 command = command.strip()
                 if command == "submit":
-                    self.r2e_test_program.submit()
                     logs = self.r2e_test_program.submit()
-
                     output = stdout_buffer.getvalue().strip()
                     error = stderr_buffer.getvalue().strip()
 
