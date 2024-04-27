@@ -112,10 +112,14 @@ class TestR2EService(unittest.TestCase):
         service.setup_test(data)
 
         out = service.setup()
-        print(out)
+        self.assertEqual(out["output"], "")
+        self.assertEqual(out["error"], "")
 
         out = service.exposed_execute("submit")
-        print(out)
+        self.assertEqual(out["output"], "")
+        # self.assertEqual(out["error"], "")
+        logs = json.loads(out["logs"])
+        self.assertTrue(logs["run_tests_logs"]["test_1"]["valid"])
 
     def test_gpt4_codegen(self):
         service = R2EService()
@@ -136,13 +140,18 @@ class TestR2EService(unittest.TestCase):
         service.setup_test(data)
 
         out = service.setup()
-        print(out)
+        self.assertEqual(out["output"], "")
+        self.assertEqual(out["error"], "")
 
         out = service.exposed_execute(gpt4_codegen)
-        print(out)
+        self.assertEqual(out["output"], "")
+        self.assertEqual(out["error"], "")
 
         out = service.exposed_execute("submit")
-        print(out)
+        self.assertEqual(out["output"], "")
+        # self.assertEqual(out["error"], "")
+        logs = json.loads(out["logs"])
+        self.assertFalse(logs["run_tests_logs"]["test_1"]["valid"])
 
     def test_gpt4_agentic(self):
         service = R2EService()
@@ -163,21 +172,26 @@ class TestR2EService(unittest.TestCase):
         service.setup_test(data)
 
         out = service.setup()
-        print(out)
+        self.assertEqual(out["output"], "")
+        self.assertEqual(out["error"], "")
 
         out = service.exposed_execute(f"code = 'def f(): return a+b'")
-        print(out)
+        self.assertEqual(out["output"], "")
+        self.assertEqual(out["error"], "")
 
         out = service.exposed_execute(f"code_ast = ast.parse(code)")
-        print(out)
+        self.assertEqual(out["output"], "")
+        self.assertEqual(out["error"], "")
 
         out = service.exposed_execute(
             f"code_obj = dis.Bytecode(compile(code, '<string>', 'exec'))"
         )
-        print(out)
+        self.assertEqual(out["output"], "")
+        self.assertEqual(out["error"], "")
 
         out = service.exposed_execute("symbols = []")
-        print(out)
+        self.assertEqual(out["output"], "")
+        self.assertEqual(out["error"], "")
 
         out = service.exposed_execute(
             """for instr in code_obj: 
@@ -186,13 +200,20 @@ class TestR2EService(unittest.TestCase):
                             const_code = instr.argval
                             symbols.extend(handle_const_code(code_ast, const_code))"""
         )
-        print(out)
-        print(service.exposed_execute("print(symbols)"))
-        print(out["output"])  # simulating: debugging
+        self.assertEqual(out["output"], "")
+        self.assertEqual(out["error"], "")
+
+        out = service.exposed_execute("print(symbols)")
+        self.assertEqual(out["output"], "['a', 'b']")
+        self.assertEqual(out["error"], "")
 
         fixed_gpt_code = function_code  # simulating: new attempt to fix the code
         out = service.exposed_execute(fixed_gpt_code)
-        print(out)
+        self.assertEqual(out["output"], "")
+        self.assertEqual(out["error"], "")
 
         out = service.exposed_execute("submit")
-        print(out)
+        self.assertEqual(out["output"], "")
+        # self.assertEqual(out["error"], "")
+        logs = json.loads(out["logs"])
+        self.assertTrue(logs["run_tests_logs"]["test_1"]["valid"])
