@@ -164,7 +164,7 @@ class Serializers:
             import networkx as nx  # type: ignore
 
             if isinstance(obj, nx.Graph):
-                from networkx.readwrite import json_graph
+                from networkx.readwrite import json_graph  # type: ignore
 
                 return (
                     str(json_graph.node_link_data(obj))
@@ -178,9 +178,9 @@ class Serializers:
     @staticmethod
     def serialize_pandas(obj):
         try:
-            import pandas as pd
+            import pandas as pd  # type: ignore
 
-            if isinstance(obj, (pd.DataFrame, pd.Series)):
+            if isinstance(obj, (pd.DataFrame, pd.Series)):  # type: ignore
                 return str(obj.head(5))
         except:
             pass
@@ -189,9 +189,9 @@ class Serializers:
     @staticmethod
     def serialize_numpy(obj):
         try:
-            import numpy as np
+            import numpy as np  # type: ignore
 
-            if isinstance(obj, np.ndarray):
+            if isinstance(obj, np.ndarray):  # type: ignore
                 if obj.size > 25:
                     return f"np.ndarray(shape={obj.shape}, dtype={obj.dtype})"
                 return obj.round(2)

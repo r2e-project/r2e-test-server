@@ -10,6 +10,7 @@ from r2e_test_server.modules.explorer import ModuleExplorer
 from r2e_test_server.instrument.arguments import CaptureArgsInstrumenter
 from r2e_test_server.testing.loader import R2ETestLoader
 from r2e_test_server.testing.runner import R2ETestRunner
+from r2e_test_server.testing.codecov import R2ECodeCoverage
 
 
 class R2ETestProgram(object):
@@ -98,13 +99,15 @@ class R2ETestProgram(object):
         nspace.update(globals())
 
         # run tests
-        run_tests_logs = self.runTests(nspace=nspace)
+        run_tests_logs, codecov = self.runTests(nspace=nspace)
 
         captured_arg_logs = instrumenter.get_logs()
+        coverage_logs = codecov.report_coverage()
 
         return json.dumps(
             {
                 "run_tests_logs": run_tests_logs,
+                "coverage_logs": coverage_logs,
                 "captured_arg_logs": captured_arg_logs,
             },
             indent=4,
@@ -169,7 +172,9 @@ class R2ETestProgram(object):
         cov.stop()
         cov.save()
 
-        return combined_stats
+        codecov = R2ECodeCoverage(cov, self.fut_module, self.file_path, self.fut_name)
+
+        return combined_stats, codecov
 
     # helpers
 
