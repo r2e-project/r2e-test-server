@@ -102,9 +102,17 @@ class R2ETestProgram(object):
         nspace.update(globals())
 
         # run tests
-        self.runTests(nspace=globals().copy())
+        run_tests_logs = self.runTests(nspace=nspace)
 
-        return instrumenter.get_logs()
+        captured_arg_logs = instrumenter.get_logs()
+
+        return json.dumps(
+            {
+                "run_tests_logs": run_tests_logs,
+                "captured_arg_logs": captured_arg_logs,
+            },
+            indent=4,
+        )
 
     def buildNamespace(
         self,
@@ -165,7 +173,7 @@ class R2ETestProgram(object):
         cov.stop()
         cov.save()
 
-        print(json.dumps(combined_stats, indent=4))
+        return combined_stats
 
     # helpers
 

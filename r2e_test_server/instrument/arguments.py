@@ -1,9 +1,9 @@
 import json
 import inspect
 import datetime
+from typing import Any
 from decimal import Decimal
 from collections.abc import Iterable
-from typing import Any
 
 from r2e_test_server.instrument.base import Instrumenter
 
@@ -44,7 +44,7 @@ class CaptureArgsInstrumenter(Instrumenter):
             }
         )
 
-    def get_logs(self):
+    def get_logs(self) -> list[dict[str, Any]]:
         logs = []
         for captured_args in self.captured_args_list:
 
@@ -58,6 +58,7 @@ class CaptureArgsInstrumenter(Instrumenter):
             )
 
             logs.append(captured_args)
+        return logs
 
     def dump_logs(self, file_path: str):
         logs = self.get_logs()
