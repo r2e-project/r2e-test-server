@@ -144,7 +144,7 @@ class TestR2EService(unittest.TestCase):
         out = service.exposed_execute("submit")
         print(out)
 
-    def test_gpt4_agenti(self):
+    def test_gpt4_agentic(self):
         service = R2EService()
         data = {"repo_name": "r2e-internal", "repo_path": "../r2e-internal"}
         data = json.dumps(data)
