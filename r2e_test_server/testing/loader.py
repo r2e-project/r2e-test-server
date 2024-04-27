@@ -9,12 +9,12 @@ class R2ETestLoader:
     @staticmethod
     def load_tests(
         test_cases: dict[str, str], function_name: str, nspace: dict[str, Any]
-    ) -> tuple[list[TestSuite], dict[str, Any]]:
-        test_suites = []
+    ) -> tuple[dict[str, TestSuite], dict[str, Any]]:
+        test_suites = {}
 
         for test_id, test_case in test_cases.items():
             test_suite = R2ETestLoader.load_test(test_case, function_name, nspace)
-            test_suites.append(test_suite)
+            test_suites[test_id] = test_suite
 
         return test_suites, nspace
 

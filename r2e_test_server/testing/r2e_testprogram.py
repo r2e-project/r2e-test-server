@@ -165,9 +165,9 @@ class R2ETestProgram(object):
         runner = R2ETestRunner()
 
         combined_stats = {}
-        for idx, test_suite in enumerate(test_suites):
-            results, stats = runner.run(test_suite)
-            combined_stats[idx] = stats
+        for test_idx, test_suite in test_suites.items():
+            _, stats = runner.run(test_suite)
+            combined_stats[test_idx] = stats
 
         cov.stop()
         cov.save()
