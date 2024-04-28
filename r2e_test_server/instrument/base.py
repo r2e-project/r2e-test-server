@@ -26,6 +26,12 @@ class Instrumenter:
 
         return wrapper
 
+    def instrument_method(self, class_obj, method):
+        """Wrap the given method with the instrumentation logic."""
+        method = getattr(class_obj, method)
+        setattr(class_obj, method.__name__, self.instrument(method))
+        return class_obj
+
     def caller_info(self):
         """Return the caller's information."""
         if self.previous_frame is None:
