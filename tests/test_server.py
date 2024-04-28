@@ -202,10 +202,10 @@ class TestR2EService(unittest.TestCase):
         data = json.dumps(data)
         service.setup_test(data)
 
-        out = service.setup()
+        out = service.init()
         self.is_empty_output(out)
 
-        out = service.exposed_execute("submit")
+        out = service.submit()
         self.assertEqual(out["output"], "")
         logs = json.loads(out["logs"])
         self.assertTrue(logs["run_tests_logs"]["test_1"]["valid"])
@@ -228,13 +228,13 @@ class TestR2EService(unittest.TestCase):
         data = json.dumps(data)
         service.setup_test(data)
 
-        out = service.setup()
+        out = service.init()
         self.is_empty_output(out)
 
-        out = service.exposed_execute(gpt4_codegen)
+        out = service.execute(gpt4_codegen)
         self.is_empty_output(out)
 
-        out = service.exposed_execute("submit")
+        out = service.submit()
         self.assertEqual(out["output"], "")
         logs = json.loads(out["logs"])
         self.assertFalse(logs["run_tests_logs"]["test_1"]["valid"])
@@ -256,24 +256,24 @@ class TestR2EService(unittest.TestCase):
         data = json.dumps(data)
         service.setup_test(data)
 
-        out = service.setup()
+        out = service.init()
         self.is_empty_output(out)
 
-        out = service.exposed_execute(f"code = 'def f(): return a+b'")
+        out = service.execute(f"code = 'def f(): return a+b'")
         self.is_empty_output(out)
 
-        out = service.exposed_execute(f"code_ast = ast.parse(code)")
+        out = service.execute(f"code_ast = ast.parse(code)")
         self.is_empty_output(out)
 
-        out = service.exposed_execute(
+        out = service.execute(
             f"code_obj = dis.Bytecode(compile(code, '<string>', 'exec'))"
         )
         self.is_empty_output(out)
 
-        out = service.exposed_execute("symbols = []")
+        out = service.execute("symbols = []")
         self.is_empty_output(out)
 
-        out = service.exposed_execute(
+        out = service.execute(
             """for instr in code_obj: 
                     if instr.opname == "LOAD_CONST":
                         if isinstance(instr.argval, types.CodeType):
@@ -282,15 +282,15 @@ class TestR2EService(unittest.TestCase):
         )
         self.is_empty_output(out)
 
-        out = service.exposed_execute("print(symbols)")
+        out = service.execute("print(symbols)")
         self.assertEqual(out["error"], "")
         self.assertEqual(out["output"], "['a', 'b']")
 
         fixed_gpt_code = function_code  # simulating: new attempt to fix the code
-        out = service.exposed_execute(fixed_gpt_code)
+        out = service.execute(fixed_gpt_code)
         self.is_empty_output(out)
 
-        out = service.exposed_execute("submit")
+        out = service.submit()
         self.assertEqual(out["output"], "")
         logs = json.loads(out["logs"])
         self.assertTrue(logs["run_tests_logs"]["test_1"]["valid"])
@@ -313,21 +313,21 @@ class TestR2EService(unittest.TestCase):
         data = json.dumps(data)
         service.setup_test(data)
 
-        out = service.setup()
+        out = service.init()
         self.is_empty_output(out)
 
-        out = service.exposed_execute(gpt4_codegen)
+        out = service.execute(gpt4_codegen)
         self.is_empty_output(out)
 
-        out = service.exposed_execute("submit")
+        out = service.submit()
         self.assertEqual(out["output"], "")
         logs = json.loads(out["logs"])
         self.assertFalse(logs["run_tests_logs"]["test_1"]["valid"])
 
-        out = service.exposed_execute(function_code)
+        out = service.execute(function_code)
         self.is_empty_output(out)
 
-        out = service.exposed_execute("submit")
+        out = service.submit()
         self.assertEqual(out["output"], "")
         logs = json.loads(out["logs"])
         self.assertTrue(logs["run_tests_logs"]["test_1"]["valid"])
@@ -349,11 +349,11 @@ class TestR2EService(unittest.TestCase):
         data = json.dumps(data)
         service.setup_test(data)
 
-        out = service.setup()
+        out = service.init()
         # self.assertEqual(out["error"], "")
         self.assertEqual(out["output"], "")
 
-        out = service.exposed_execute("submit")
+        out = service.submit()
         self.assertEqual(out["output"], "")
         logs = json.loads(out["logs"])
         self.check_coverage_exists(logs["coverage_logs"])
@@ -380,10 +380,10 @@ class TestR2EService(unittest.TestCase):
         data = json.dumps(data)
         service.setup_test(data)
 
-        out = service.setup()
+        out = service.init()
         self.is_empty_output(out)
 
-        out = service.exposed_execute("submit")
+        out = service.submit()
         self.assertEqual(out["output"], "")
         logs = json.loads(out["logs"])
         self.assertTrue(logs["run_tests_logs"]["test_1"]["valid"])
