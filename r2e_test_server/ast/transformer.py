@@ -46,6 +46,25 @@ class ImportAliasReplacer(ASTTransformer):
         return node
 
 
+class NameReplacer(ASTTransformer):
+    """Replace aliases of imports with original name in the code.
+
+    Args:
+        tree (ast.Module): AST tree of the code.
+        names (list[str]): list of original names to be used in the code.
+    """
+
+    def __init__(self, tree: ast.Module, old_name: str, new_name: str):
+        super().__init__(tree)
+        self.old_name = old_name
+        self.new_name = new_name
+
+    def visit_Name(self, node):
+        if node.id == self.old_name:
+            return ast.copy_location(ast.Name(id=self.new_name, ctx=node.ctx), node)
+        return node
+
+
 class RemoveFunctionTransformer(ASTTransformer):
     """Remove a function from the code.
 
