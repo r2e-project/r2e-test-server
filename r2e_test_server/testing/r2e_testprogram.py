@@ -14,7 +14,6 @@ from r2e_test_server.testing.runner import R2ETestRunner
 from r2e_test_server.ast.transformer import NameReplacer
 from r2e_test_server.testing.codecov import R2ECodeCoverage
 from r2e_test_server.modules.explorer import ModuleExplorer
-
 from r2e_test_server.instrument.arguments import CaptureArgsInstrumenter
 
 
@@ -42,13 +41,15 @@ class R2ETestProgram(object):
 
         with open(file_path, "r") as file:
             self.orig_file_content = file.read()
-        self.orig_file_ast = ast.parse(self.orig_file_content)
+            self.orig_file_ast = ast.parse(self.orig_file_content)
 
-        # setup function under tes
-        self.setupFuts()  # creates: fut_function(s), fut_module, and fut_module_deps
+        # setup function under test
+        # creates: fut_function(s), fut_module, and fut_module_deps
+        self.setupFuts()
 
         # setup reference function
-        self.setupRefs()  # creates: ref_function(s) inside self.fut_module
+        # creates: ref_function(s) in fut_module
+        self.setupRefs()
 
     def setupFuts(self):
         """Setup the function under test (FUT).
@@ -91,7 +92,12 @@ class R2ETestProgram(object):
 
         return
 
-    def submit(self):
+    def submit(self) -> str:
+        """Submit the function/method under test to the R2E test framework.
+
+        Returns:
+            str: JSON string containing the test results.
+        """
         # instrument code
         instrumenter = CaptureArgsInstrumenter()
         for funclass_name in self.funclass_names:
@@ -103,11 +109,7 @@ class R2ETestProgram(object):
                 continue
 
             funclass_object = instrumenter.instrument(funclass_object)
-            setattr(
-                self.fut_module,
-                funclass_name,
-                funclass_object,
-            )
+            setattr(self.fut_module, funclass_name, funclass_object)
 
         # build namespace
         nspace = self.buildNamespace()
