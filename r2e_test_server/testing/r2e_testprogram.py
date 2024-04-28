@@ -65,6 +65,12 @@ class R2ETestProgram(object):
 
         self.fut_module = fut_module
         self.fut_module_deps = fut_module_deps
+
+        for funclass_name in self.funclass_names:
+            orig_ast = self.get_funclass_ast(funclass_name)
+            orig_source = ast.unparse(orig_ast)
+
+            self.compile_and_exec(orig_source)
         return
 
     def setupRefs(self):
@@ -83,7 +89,6 @@ class R2ETestProgram(object):
 
             new_source = ast.unparse(new_ast)
 
-            ## TODO -- ensure all compile and exec happens inside fut_module
             self.compile_and_exec(new_source)
 
         return
