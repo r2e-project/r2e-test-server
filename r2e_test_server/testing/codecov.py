@@ -120,10 +120,20 @@ class R2ECodeCoverage(object):
     def source_exists(self) -> bool:
         """Check if the source code exists in a file."""
         try:
-            lines_info = inspect.getsourcelines(
-                getattr(self.fut_module, self.funclass_name)
-            )
-        except OSError:
+
+            # method case
+            if "." in self.funclass_name:
+                class_name, method_name = self.funclass_name.split(".")
+                class_obj = getattr(self.fut_module, class_name)
+                method_obj = getattr(class_obj, method_name)
+                lines_info = inspect.getsourcelines(method_obj)
+
+            # func/class case
+            else:
+                func_obj = getattr(self.fut_module, self.funclass_name)
+                lines_info = inspect.getsourcelines(func_obj)
+
+        except (OSError, AttributeError):
             # print(f"{self.funclass_name} not found\n{self.fut_module.__dict__}")
             return False
 
