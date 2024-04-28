@@ -274,7 +274,7 @@ class TestR2EService(unittest.TestCase):
         self.is_empty_output(out)
 
         out = service.execute(
-            """for instr in code_obj: 
+            """for instr in code_obj:
                     if instr.opname == "LOAD_CONST":
                         if isinstance(instr.argval, types.CodeType):
                             const_code = instr.argval
@@ -339,7 +339,7 @@ class TestR2EService(unittest.TestCase):
         service.setup_repo(data)
 
         data = {
-            "funclass_names": ["DependencyGraph"],
+            "funclass_names": ["DependencyGraph.topological_file_sort"],
             "file_path": "../r2e-internal/r2e/pat/dependency_slicer/dependency_graph.py",
         }
         data = json.dumps(data)
