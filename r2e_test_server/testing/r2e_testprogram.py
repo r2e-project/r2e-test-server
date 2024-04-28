@@ -68,11 +68,11 @@ class R2ETestProgram(object):
 
         # NOTE: for consistency between codegen and self-equivalence
         # we will recompile the orignal function in the namespace
-        for funclass_name in self.funclass_names:
-            orig_ast = self.get_funclass_ast(funclass_name)
-            orig_source = ast.unparse(orig_ast)
+        # for funclass_name in self.funclass_names:
+        #     orig_ast = self.get_funclass_ast(funclass_name)
+        #     orig_source = ast.unparse(orig_ast)
 
-            self.compile_and_exec(orig_source)
+        #     self.compile_and_exec(orig_source)
         return
 
     def setupRefs(self):
