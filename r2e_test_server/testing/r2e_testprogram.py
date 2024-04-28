@@ -25,14 +25,13 @@ class R2ETestProgram(object):
         self,
         repo_name: str,
         repo_path: str,
-        function_name: str,
+        funclass_names: list[str],
         file_path: str,
         generated_tests: dict[str, str],
     ):
         self.repo_name = repo_name
         self.repo_path = repo_path
-        self.function_name = function_name
-        self.fut_name = function_name
+        self.funclass_names = funclass_names
         self.file_path = file_path
         self.generated_tests = generated_tests
 
