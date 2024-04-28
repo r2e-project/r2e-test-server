@@ -14,7 +14,7 @@ from r2e_test_server.testing.runner import R2ETestRunner
 from r2e_test_server.ast.transformer import NameReplacer
 from r2e_test_server.testing.codecov import R2ECodeCoverage
 from r2e_test_server.modules.explorer import ModuleExplorer
-from r2e_test_server.instrument.arguments import CaptureArgsInstrumenter
+from r2e_test_server.instrument import Instrumenter, CaptureArgsInstrumenter
 
 
 class R2ETestProgram(object):
@@ -43,18 +43,19 @@ class R2ETestProgram(object):
             self.orig_file_content = file.read()
             self.orig_file_ast = ast.parse(self.orig_file_content)
 
-        # setup function under test
-        # creates: fut_function(s), fut_module, and fut_module_deps
-        self.setupFuts()
+        # setup the env for testing
+        # creates: fut_module and fut_module_deps
+        self.setupEnv()
 
         # setup reference function
         # creates: ref_function(s) in fut_module
         self.setupRefs()
 
-    def setupFuts(self):
-        """Setup the function under test (FUT).
+    def setupEnv(self):
+        """Setup the environment for testing.
+
         Dynamically import the module containing the FUT.
-        Store the FUT, its module, and its dependencies in test program class.
+        Save the module and its dependencies.
         """
 
         fut_module, fut_module_deps = self.get_fut_module()
@@ -63,21 +64,21 @@ class R2ETestProgram(object):
         self.fut_module = fut_module
         self.fut_module_deps = fut_module_deps
 
-        # NOTE: for consistency between codegen and self-equivalence
-        # we will recompile the orignal function in the namespace
-        # for funclass_name in self.funclass_names:
-        #     orig_ast = self.get_funclass_ast(funclass_name)
-        #     orig_source = ast.unparse(orig_ast)
-
-        #     self.compile_and_exec(orig_source)
         return
 
     def setupRefs(self):
-        """Create a reference function from the function under test.
-        The reference function is a deep copy of the FUT.
-        Store the reference function in the FUT module and in the test program class.
+        """Creates a reference/oracle for testing.
+
+        reference is a deep copy of the code under test.
+        exec()s to load reference function into the environment.
         """
         for funclass_name in self.funclass_names:
+
+            # for a method, use the enclosing class as the reference object
+            if "." in funclass_name:
+                class_name, _ = funclass_name.split(".")
+                funclass_name = class_name
+
             ref_name = f"reference_{funclass_name}"
             orig_ast = self.get_funclass_ast(funclass_name)
 
@@ -98,25 +99,14 @@ class R2ETestProgram(object):
         Returns:
             str: JSON string containing the test results.
         """
-        # instrument code
+        # instrument code and build namespace
         instrumenter = CaptureArgsInstrumenter()
-        for funclass_name in self.funclass_names:
-            ## TODO: instrumenter only works for functions, not classes
-            ## handle classes -- need to pass class-method information as well
-            funclass_object = self.get_funclass_object(funclass_name)
-
-            if isinstance(funclass_object, type):
-                continue
-
-            funclass_object = instrumenter.instrument(funclass_object)
-            setattr(self.fut_module, funclass_name, funclass_object)
+        self.instrumentCode(instrumenter)
 
         # build namespace
         nspace = self.buildNamespace()
-        nspace.update(globals())
 
         # run tests
-        ## TODO -- coverage doesn't work for classmethods yet (works for classes..)
         run_tests_logs, codecovs = self.runTests(nspace=nspace)
         captured_arg_logs = instrumenter.get_logs()
         coverage_logs = [codecov.report_coverage() for codecov in codecovs]
@@ -129,38 +119,34 @@ class R2ETestProgram(object):
 
         return json.dumps(result, indent=4)
 
+    def instrumentCode(self, instrumenter: Instrumenter):
+        """Instrument the code under test."""
+        for funclass_name in self.funclass_names:
+            if "." in funclass_name:
+                class_name, method_name = funclass_name.split(".")
+                class_obj = self.get_funclass_object(class_name)
+
+                if class_obj:
+                    class_obj = instrumenter.instrument_method(class_obj, method_name)
+                    setattr(self.fut_module, class_name, class_obj)
+
+            else:
+                funclass_object = self.get_funclass_object(funclass_name)
+
+                if funclass_object and not isinstance(funclass_object, type):
+                    funclass_object = instrumenter.instrument(funclass_object)
+                    setattr(self.fut_module, funclass_name, funclass_object)
+
     def buildNamespace(self) -> dict[str, Any]:
         """Build namespace for the test runner.
 
         Notes:
             - https://docs.python.org/3/reference/executionmodel.html
             - namespace = {`Name` ↦ `object`}
-
-        Args:
-            fut_name (str): name of the function under test.
-            ref_name (str): name of the reference function.
-            fut_module (ModuleType): module containing the function under test.
-            fut_module_deps (dict): dependencies of the module.
-
-        Returns:
-            dict[str, Any]: namespace for the test runner.
         """
         nspace = {}
-
-        ## NOTE : adding both nsoace and fut_module.__dict__  seems hacky?...
         nspace["fut_module"] = self.fut_module
-        for funclass_name in self.funclass_names:
-            nspace[funclass_name] = self.get_funclass_object(funclass_name)
-            ref_name = f"reference_{funclass_name}"
-            nspace[ref_name] = self.get_funclass_object(ref_name)
-
-        ## NOTE : this might not be necessary? dir(fut_module) should be enough and already includes the module itself
-        nspace.update(self.fut_module_deps)
-
-        for name in dir(self.fut_module):
-            if not name.startswith("__"):  # ignore built-ins
-                nspace[name] = getattr(self.fut_module, name)
-
+        nspace.update(self.fut_module.__dict__)
         return nspace
 
     def runTests(self, nspace: dict[str, Any]):
@@ -187,9 +173,7 @@ class R2ETestProgram(object):
         cov.stop()
         cov.save()
 
-        ## TODO -- we need classmethod name to get method level coverage
-        ## already reason about assumption of what should coverage be measuring
-        ## since in classes, we prolly care about other methods as well..
+        # TODO: handle methods
         codecovs = [
             R2ECodeCoverage(cov, self.fut_module, self.file_path, funclass_name)
             for funclass_name in self.funclass_names
@@ -227,9 +211,9 @@ class R2ETestProgram(object):
 
         return fut_module, fut_module_deps
 
-    def get_funclass_object(self, funclass_name: str) -> FunctionType | type:
+    def get_funclass_object(self, name: str) -> FunctionType | type:
         """Get the function or class object from the module by name."""
-        return getattr(self.fut_module, funclass_name)
+        return getattr(self.fut_module, name)
 
     def get_funclass_ast(self, funclass_name: str) -> ast.FunctionDef | ast.ClassDef:
         """Get the function or class AST node from the original file by name."""
