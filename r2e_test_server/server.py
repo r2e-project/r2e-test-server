@@ -1,6 +1,7 @@
 import sys
 import json
 import traceback
+from threading import Thread, Event
 from io import StringIO
 
 import rpyc
@@ -37,6 +38,10 @@ class R2EService(rpyc.Service):
 
     def on_disconnect(self, conn):
         pass
+
+    @rpyc.exposed
+    def stop_server(self):
+        server_stop_event.set()
 
     @rpyc.exposed
     def setup_repo(self, data: str):
@@ -111,10 +116,22 @@ class R2EService(rpyc.Service):
             return {"error": f"Error: {traceback_message}\n\nSmall Error: {repr(e)}"}
 
 
-def main(port: int):
+server_stop_event = Event()
+
+
+def start_server(port: int):
     server = ThreadPoolServer(R2EService(), port=port)
-    server.start()
+
+    # Run the server and wait for a stop event
+    server_thread = Thread(target=server.start)
+    server_thread.start()
+    server_stop_event.wait()
+
+    # Once received, close the server and join the thread
+    server.close()
+    server_thread.join()
+    print("Server stopped")
 
 
 if __name__ == "__main__":
-    main(3006)
+    start_server(3006)
