@@ -47,11 +47,12 @@ class ImportAliasReplacer(ASTTransformer):
 
 
 class NameReplacer(ASTTransformer):
-    """Replace aliases of imports with original name in the code.
+    """Replace old name with new name in the code
 
     Args:
         tree (ast.Module): AST tree of the code.
-        names (list[str]): list of original names to be used in the code.
+        old_name (str): the name to be replaced
+        new_name (str): the name to replace with
     """
 
     def __init__(self, tree: ast.Module, old_name: str, new_name: str):
