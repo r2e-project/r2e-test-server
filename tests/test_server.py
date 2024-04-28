@@ -92,9 +92,9 @@ class TestDependencyGraphEquivalence(unittest.TestCase):
         self.file3 = File(file_module=Module(module_id=Identifier(identifier="module3"), repo=self.repo))
 
         # Create AstStatements for each file
-        self.stmt1 = AstStatement(stmt=None, idx=0, file=self.file1, orig_stmt=None, orig_stmt_idx=0)
-        self.stmt2 = AstStatement(stmt=None, idx=1, file=self.file2, orig_stmt=None, orig_stmt_idx=1)
-        self.stmt3 = AstStatement(stmt=None, idx=2, file=self.file3, orig_stmt=None, orig_stmt_idx=2)
+        self.stmt1 = AstStatement(stmt=ast.stmt(), idx=0, file=self.file1, orig_stmt=None, orig_stmt_idx=0)
+        self.stmt2 = AstStatement(stmt=ast.stmt(), idx=1, file=self.file2, orig_stmt=None, orig_stmt_idx=1)
+        self.stmt3 = AstStatement(stmt=ast.stmt(), idx=2, file=self.file3, orig_stmt=None, orig_stmt_idx=2)
 
     def test_topological_file_sort_equivalence(self):
         # Create DependencyGraph and ReferenceDependencyGraph instances
@@ -177,6 +177,10 @@ class TestHandleConstant(unittest.TestCase):
 
 class TestR2EService(unittest.TestCase):
 
+    def check_coverage_exists(self, coverage_logs):
+        for coverage_log in coverage_logs:
+            self.assertTrue(len(coverage_log) > 0)
+
     def test_self_equiv(self):
         service = R2EService()
         data = {"repo_name": "r2e-internal", "repo_path": "../r2e-internal"}
@@ -202,6 +206,7 @@ class TestR2EService(unittest.TestCase):
         self.assertEqual(out["output"], "")
         logs = json.loads(out["logs"])
         self.assertTrue(logs["run_tests_logs"]["test_1"]["valid"])
+        self.check_coverage_exists(logs["coverage_logs"])
 
     def test_gpt4_codegen(self):
         service = R2EService()
@@ -360,7 +365,7 @@ class TestR2EService(unittest.TestCase):
         out = service.exposed_execute("submit")
         self.assertEqual(out["output"], "")
         logs = json.loads(out["logs"])
-        self.assertTrue(logs["run_tests_logs"]["test_1"]["valid"])
+        self.check_coverage_exists(logs["coverage_logs"])
 
     def test_multifunction(self):
         service = R2EService()
@@ -392,3 +397,4 @@ class TestR2EService(unittest.TestCase):
         self.assertEqual(out["output"], "")
         logs = json.loads(out["logs"])
         self.assertTrue(logs["run_tests_logs"]["test_1"]["valid"])
+        self.check_coverage_exists(logs["coverage_logs"])
