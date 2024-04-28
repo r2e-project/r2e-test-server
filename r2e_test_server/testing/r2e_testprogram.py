@@ -66,6 +66,8 @@ class R2ETestProgram(object):
         self.fut_module = fut_module
         self.fut_module_deps = fut_module_deps
 
+        # NOTE: for consistency between codegen and self-equivalence
+        # we will recompile the orignal function in the namespace
         for funclass_name in self.funclass_names:
             orig_ast = self.get_funclass_ast(funclass_name)
             orig_source = ast.unparse(orig_ast)
@@ -97,6 +99,7 @@ class R2ETestProgram(object):
         # instrument code
         instrumenter = CaptureArgsInstrumenter()
         for funclass_name in self.funclass_names:
+            ## TODO: instrumenter only works for functions, not classes
             setattr(
                 self.fut_module,
                 funclass_name,
