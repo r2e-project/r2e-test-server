@@ -43,16 +43,11 @@ class R2ETestProgram(object):
             self.orig_file_content = file.read()
         self.orig_file_ast = ast.parse(self.orig_file_content)
 
-        # setup function under test and stores
-        #  -- self.fut_function(s)
-        #  -- self.fut_module
-        #  -- self.fut_module_deps
-        self.setupFuts()
+        # setup function under tes
+        self.setupFuts()  # creates: fut_function(s), fut_module, and fut_module_deps
 
-        # setup reference function and stores
-        #  -- self.ref_function(s)
-        #  -- ref_function(s) inside self.fut_module
-        self.setupRefs()
+        # setup reference function
+        self.setupRefs()  # creates: ref_function(s) inside self.fut_module
 
     def setupFuts(self):
         """Setup the function under test (FUT).
