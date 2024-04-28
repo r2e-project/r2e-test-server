@@ -173,6 +173,7 @@ class R2ETestProgram(object):
         cov.stop()
         cov.save()
 
+        # TODO: handle methods
         codecovs = [
             R2ECodeCoverage(cov, self.fut_module, self.file_path, funclass_name)
             for funclass_name in self.funclass_names
