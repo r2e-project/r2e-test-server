@@ -8,27 +8,33 @@ class R2ETestLoader:
 
     @staticmethod
     def load_tests(
-        test_cases: dict[str, str], function_name: str, nspace: dict[str, Any]
+        test_cases: dict[str, str], funclass_names: list[str], nspace: dict[str, Any]
     ) -> tuple[dict[str, TestSuite], dict[str, Any]]:
         test_suites = {}
 
         for test_id, test_case in test_cases.items():
-            test_suite = R2ETestLoader.load_test(test_case, function_name, nspace)
+            test_suite = R2ETestLoader.load_test(test_case, funclass_names, nspace)
             test_suites[test_id] = test_suite
 
         return test_suites, nspace
 
     @staticmethod
     def load_test(
-        test_case: str, function_name: str, nspace: dict[str, Any]
+        test_case: str, funclass_names: list[str], nspace: dict[str, Any]
     ) -> TestSuite:
 
-        assert function_name is not None, "Function name not available!"
-        fut_name = function_name
-        ref_name = f"reference_{fut_name}"
+        for funclass_name in funclass_names:
+            ref_name = f"reference_{funclass_name}"
+
+            try:
+                test_case = R2ETestCleaner.clean_test_case(
+                    test_case, funclass_name, ref_name
+                )
+            except Exception as e:
+                print("[ERROR] Could not load test case!")
+                raise
 
         try:
-            test_case = R2ETestCleaner.clean_test_case(test_case, fut_name, ref_name)
             R2ETestLoader.add_test_to_namespace(test_case, nspace)
 
             test_suite, test_classes = R2ETestLoader.create_test_suite(nspace)
@@ -36,7 +42,6 @@ class R2ETestLoader:
         except Exception as e:
             print("[ERROR] Could not load test case!")
             raise
-
         return test_suite
 
     @staticmethod

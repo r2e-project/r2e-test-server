@@ -1,6 +1,7 @@
 import sys
 import json
 import traceback
+from threading import Thread, Event
 from io import StringIO
 
 import rpyc
@@ -27,6 +28,7 @@ class CaptureOutput:
         sys.stderr = self.old_stderr
 
 
+@rpyc.service
 class R2EService(rpyc.Service):
     def __init__(self):
         pass
@@ -37,21 +39,29 @@ class R2EService(rpyc.Service):
     def on_disconnect(self, conn):
         pass
 
+    @rpyc.exposed
+    def stop_server(self):
+        server_stop_event.set()
+
+    @rpyc.exposed
     def setup_repo(self, data: str):
         data_dict = json.loads(data)
         self.repo_name: str = data_dict["repo_name"]
         self.repo_path: str = data_dict["repo_path"]
 
+    @rpyc.exposed
     def setup_function(self, data: str):
         data_dict = json.loads(data)
-        self.function_name: str = data_dict["function_name"]
-        self.file_path: str = data_dict["file_path"]
+        self.funclass_names: list[str] = data_dict["funclass_names"]
+        self.file_path = data_dict["file_path"]
 
+    @rpyc.exposed
     def setup_test(self, data: str):
         data_dict = json.loads(data)
         self.generated_tests: dict[str, str] = data_dict["generated_tests"]
 
-    def setup(self):
+    @rpyc.exposed
+    def init(self):
         try:
             stdout_buffer = StringIO()
             stderr_buffer = StringIO()
@@ -59,7 +69,7 @@ class R2EService(rpyc.Service):
                 self.r2e_test_program = R2ETestProgram(
                     self.repo_name,
                     self.repo_path,
-                    self.function_name,
+                    self.funclass_names,
                     self.file_path,
                     self.generated_tests,
                 )
@@ -73,34 +83,55 @@ class R2EService(rpyc.Service):
             traceback_message = traceback.format_exc()
             return {"error": f"Error: {traceback_message}\n\nSmall Error: {repr(e)}"}
 
-    def exposed_execute(self, command: str):
+    @rpyc.exposed
+    def submit(self):
         stdout_buffer = StringIO()
         stderr_buffer = StringIO()
         try:
             with CaptureOutput(stdout=stdout_buffer, stderr=stderr_buffer):
-                command = command.strip()
-                if command == "submit":
-                    logs = self.r2e_test_program.submit()
-                    output = stdout_buffer.getvalue().strip()
-                    error = stderr_buffer.getvalue().strip()
+                logs = self.r2e_test_program.submit()
+                output = stdout_buffer.getvalue().strip()
+                error = stderr_buffer.getvalue().strip()
 
-                    return {"output": output, "error": error, "logs": logs}
-                else:
-                    self.r2e_test_program.compile_and_exec(command)
-                    output = stdout_buffer.getvalue().strip()
-                    error = stderr_buffer.getvalue().strip()
+                return {"output": output, "error": error, "logs": logs}
 
-                    return {"output": output, "error": error}
+        except Exception as e:
+            traceback_message = traceback.format_exc()
+            return {"error": f"Error: {traceback_message}\n\nSmall Error: {repr(e)}"}
+
+    @rpyc.exposed
+    def execute(self, command: str):
+        stdout_buffer = StringIO()
+        stderr_buffer = StringIO()
+        try:
+            with CaptureOutput(stdout=stdout_buffer, stderr=stderr_buffer):
+                self.r2e_test_program.compile_and_exec(command.strip())
+                output = stdout_buffer.getvalue().strip()
+                error = stderr_buffer.getvalue().strip()
+
+                return {"output": output, "error": error}
 
         except Exception as e:
             traceback_message = traceback.format_exc()
             return {"error": f"Error: {traceback_message}\n\nSmall Error: {repr(e)}"}
 
 
-def main(port: int):
+server_stop_event = Event()
+
+
+def start_server(port: int):
     server = ThreadPoolServer(R2EService(), port=port)
-    server.start()
+
+    # Run the server and wait for a stop event
+    server_thread = Thread(target=server.start)
+    server_thread.start()
+    server_stop_event.wait()
+
+    # Once received, close the server and join the thread
+    server.close()
+    server_thread.join()
+    print("Server stopped")
 
 
 if __name__ == "__main__":
-    main(3006)
+    start_server(3006)

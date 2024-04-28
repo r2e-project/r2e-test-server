@@ -2,14 +2,17 @@
 name = "r2e_test_server"
 version = "0.1.0"
 description = "Test Server For R2E"
-authors = ["Naman Jain <naman1205jain@gmail.com>"]
+authors = ["Naman Jain <naman_jain@berkeley.com>", "Manish Shetty <manishs@berkeley.edu>"]
 readme = "README.md"
+license = "MIT"
+repository = "https://github.com/r2e-project/r2e-test-server"
 
 [tool.poetry.dependencies]
 python = "^3.8"
 rpyc = "^6.0.0"
 coverage = "^7.5.0"
 pyright = "^1.1.360"
+typer = "^0.12.3"
 
 [tool.pyright]
 reportMissingTypeStubs = false
@@ -17,3 +20,7 @@ reportMissingTypeStubs = false
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+
+[tool.poetry.scripts]
+r2e-test-server = "r2e_test_server.cli:app"
