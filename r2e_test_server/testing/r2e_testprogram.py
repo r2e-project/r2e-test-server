@@ -87,7 +87,7 @@ class R2ETestProgram(object):
             new_ast = deepcopy(orig_ast)
             new_ast.name = ref_name
 
-            new_ast = NameReplacer(new_ast, funclass_name, ref_name).transform()
+            new_ast = NameReplacer(new_ast, funclass_name, ref_name).transform()  # type: ignore
 
             new_source = ast.unparse(new_ast)
 
@@ -100,12 +100,15 @@ class R2ETestProgram(object):
         instrumenter = CaptureArgsInstrumenter()
         for funclass_name in self.funclass_names:
             ## TODO: instrumenter only works for functions, not classes
+            ## handle classes -- need to pass class-method information as well
+            funclass_object = self.get_funclass_object_by_name(funclass_name)
+            if isinstance(funclass_object, type):
+                continue
+            funclass_object = instrumenter.instrument(funclass_object)
             setattr(
                 self.fut_module,
                 funclass_name,
-                instrumenter.instrument(
-                    self.get_funclass_object_by_name(funclass_name)
-                ),
+                funclass_object,
             )
 
         # build namespace
@@ -113,11 +116,11 @@ class R2ETestProgram(object):
         nspace.update(globals())
 
         # run tests
-        ## TODO -- post refactor needs fix
-        run_tests_logs, codecov = self.runTests(nspace=nspace)
+        ## TODO -- coverage doesn't work for classmethods yet (works for classes..)
+        run_tests_logs, codecovs = self.runTests(nspace=nspace)
 
         captured_arg_logs = instrumenter.get_logs()
-        coverage_logs = codecov.report_coverage()
+        coverage_logs = [codecov.report_coverage() for codecov in codecovs]
 
         return json.dumps(
             {
@@ -146,8 +149,7 @@ class R2ETestProgram(object):
         """
         nspace = {}
 
-        ## NOTE : adding all of these seems hacky?...
-        ## nspace is essentially fut_module.__dict__
+        ## NOTE : adding both nsoace and fut_module.__dict__  seems hacky?...
         nspace["fut_module"] = self.fut_module
         for funclass_name in self.funclass_names:
             nspace[funclass_name] = self.get_funclass_object_by_name(funclass_name)
@@ -170,10 +172,9 @@ class R2ETestProgram(object):
             FUT (FunctionUnderTest): function under test.
             nspace (dict): namespace to run tests in.
 
-        ### --- TODO
         """
         test_suites, nspace = R2ETestLoader.load_tests(
-            self.generated_tests, self.function_name, nspace
+            self.generated_tests, self.funclass_names, nspace
         )
 
         cov = coverage.Coverage(include=[self.file_path], branch=True)
@@ -188,9 +189,15 @@ class R2ETestProgram(object):
         cov.stop()
         cov.save()
 
-        codecov = R2ECodeCoverage(cov, self.fut_module, self.file_path, self.fut_name)
+        ## TODO -- we need classmethod name to get method level coverage
+        ## already reason about assumption of what should coverage be measuring
+        ## since in classes, we prolly care about other methods as well..
+        codecovs = [
+            R2ECodeCoverage(cov, self.fut_module, self.file_path, funclass_name)
+            for funclass_name in self.funclass_names
+        ]
 
-        return combined_stats, codecov
+        return combined_stats, codecovs
 
     # helpers
 
@@ -234,6 +241,7 @@ class R2ETestProgram(object):
             if isinstance(node, ast.ClassDef) or isinstance(node, ast.FunctionDef):
                 if node.name == funclass_name:
                     return node
+        raise ValueError(f"Function or class {funclass_name} not found in the file.")
 
     def import_module_dynamic(self, module_name: str, module_path: str) -> ModuleType:
         """Dynamically import a module from a file path.
