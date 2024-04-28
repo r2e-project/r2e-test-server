@@ -391,5 +391,4 @@ class TestR2EService(unittest.TestCase):
         out = service.exposed_execute("submit")
         self.assertEqual(out["output"], "")
         logs = json.loads(out["logs"])
-        json.dump(logs, open("logs.json", "w"), indent=4)
         self.assertTrue(logs["run_tests_logs"]["test_1"]["valid"])
