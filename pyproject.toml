@@ -2,8 +2,10 @@
 name = "r2e_test_server"
 version = "0.1.0"
 description = "Test Server For R2E"
-authors = ["Naman Jain <naman1205jain@gmail.com>"]
+authors = ["Naman Jain <naman_jain@berkeley.com>", "Manish Shetty <manishs@berkeley.edu>"]
 readme = "README.md"
+license = "MIT"
+repository = "https://github.com/r2e-project/r2e-test-server"
 
 [tool.poetry.dependencies]
 python = "^3.8"
