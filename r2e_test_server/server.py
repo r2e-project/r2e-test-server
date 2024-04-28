@@ -27,6 +27,7 @@ class CaptureOutput:
         sys.stderr = self.old_stderr
 
 
+@rpyc.service
 class R2EService(rpyc.Service):
     def __init__(self):
         pass
@@ -37,20 +38,24 @@ class R2EService(rpyc.Service):
     def on_disconnect(self, conn):
         pass
 
+    @rpyc.exposed
     def setup_repo(self, data: str):
         data_dict = json.loads(data)
         self.repo_name: str = data_dict["repo_name"]
         self.repo_path: str = data_dict["repo_path"]
 
+    @rpyc.exposed
     def setup_function(self, data: str):
         data_dict = json.loads(data)
         self.funclass_names: list[str] = data_dict["funclass_names"]
         self.file_path = data_dict["file_path"]
 
+    @rpyc.exposed
     def setup_test(self, data: str):
         data_dict = json.loads(data)
         self.generated_tests: dict[str, str] = data_dict["generated_tests"]
 
+    @rpyc.exposed
     def setup(self):
         try:
             stdout_buffer = StringIO()
@@ -73,7 +78,8 @@ class R2EService(rpyc.Service):
             traceback_message = traceback.format_exc()
             return {"error": f"Error: {traceback_message}\n\nSmall Error: {repr(e)}"}
 
-    def exposed_execute(self, command: str):
+    @rpyc.exposed
+    def execute(self, command: str):
         stdout_buffer = StringIO()
         stderr_buffer = StringIO()
         try:
