@@ -1,16 +1,20 @@
+import ast
 import sys
 import json
 import importlib
 import coverage
 from typing import Any
+from copy import deepcopy
 from types import ModuleType, FunctionType
 
 
-from r2e_test_server.modules.explorer import ModuleExplorer
-from r2e_test_server.instrument.arguments import CaptureArgsInstrumenter
 from r2e_test_server.testing.loader import R2ETestLoader
 from r2e_test_server.testing.runner import R2ETestRunner
+from r2e_test_server.ast.transformer import NameReplacer
 from r2e_test_server.testing.codecov import R2ECodeCoverage
+from r2e_test_server.modules.explorer import ModuleExplorer
+
+from r2e_test_server.instrument.arguments import CaptureArgsInstrumenter
 
 
 class R2ETestProgram(object):
@@ -35,18 +39,22 @@ class R2ETestProgram(object):
         self.file_path = file_path
         self.generated_tests = generated_tests
 
+        with open(file_path, "r") as file:
+            self.orig_file_content = file.read()
+        self.orig_file_ast = ast.parse(self.orig_file_content)
+
         # setup function under test and stores
-        #  -- self.fut_function
+        #  -- self.fut_function(s)
         #  -- self.fut_module
         #  -- self.fut_module_deps
-        self.setupFut()
+        self.setupFuts()
 
         # setup reference function and stores
-        #  -- self.ref_function
-        #  -- ref_function inside self.fut_module
-        self.setupRef()
+        #  -- self.ref_function(s)
+        #  -- ref_function(s) inside self.fut_module
+        self.setupRefs()
 
-    def setupFut(self):
+    def setupFuts(self):
         """Setup the function under test (FUT).
         Dynamically import the module containing the FUT.
         Store the FUT, its module, and its dependencies in test program class.
@@ -59,25 +67,25 @@ class R2ETestProgram(object):
         self.fut_module_deps = fut_module_deps
         return
 
-    def setupRef(self):
+    def setupRefs(self):
         """Create a reference function from the function under test.
         The reference function is a deep copy of the FUT.
         Store the reference function in the FUT module and in the test program class.
         """
-        fut_function = self.get_fut_function()
+        for funclass_name in self.funclass_names:
+            ref_name = f"reference_{funclass_name}"
+            orig_ast = self.get_funclass_ast(funclass_name)
 
-        self.ref_name = f"reference_{self.fut_name}"
-        ref_function = FunctionType(
-            fut_function.__code__,
-            fut_function.__globals__,
-            self.ref_name,
-            fut_function.__defaults__,
-            fut_function.__closure__,
-        )
-        ref_function.__kwdefaults__ = fut_function.__kwdefaults__
-        setattr(self.fut_module, self.ref_name, ref_function)
+            new_ast = deepcopy(orig_ast)
+            new_ast.name = ref_name
 
-        self.ref_function = ref_function
+            new_ast = NameReplacer(new_ast, funclass_name, ref_name).transform()
+
+            new_source = ast.unparse(new_ast)
+
+            ## TODO -- ensure all compile and exec happens inside fut_module
+            self.compile_and_exec(new_source)
+
         return
 
     def submit(self):
@@ -203,8 +211,14 @@ class R2ETestProgram(object):
 
         return fut_module, fut_module_deps
 
-    def get_fut_function(self) -> FunctionType:
-        return getattr(self.fut_module, self.fut_name)
+    # def get_fut_function(self) -> FunctionType:
+    #     return getattr(self.fut_module, self.fut_name)
+
+    def get_funclass_ast(self, funclass_name: str) -> ast.FunctionDef | ast.ClassDef:
+        for node in self.orig_file_ast.body:
+            if isinstance(node, ast.ClassDef) or isinstance(node, ast.FunctionDef):
+                if node.name == funclass_name:
+                    return node
 
     def import_module_dynamic(self, module_name: str, module_path: str) -> ModuleType:
         """Dynamically import a module from a file path.
