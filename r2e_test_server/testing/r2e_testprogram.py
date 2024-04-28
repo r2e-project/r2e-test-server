@@ -91,19 +91,21 @@ class R2ETestProgram(object):
     def submit(self):
         # instrument code
         instrumenter = CaptureArgsInstrumenter()
-        setattr(
-            self.fut_module,
-            self.fut_name,
-            instrumenter.instrument(self.get_fut_function()),
-        )
+        for funclass_name in self.funclass_names:
+            setattr(
+                self.fut_module,
+                funclass_name,
+                instrumenter.instrument(
+                    self.get_funclass_object_by_name(funclass_name)
+                ),
+            )
 
         # build namespace
-        nspace = self.buildNamespace(
-            self.fut_name, self.ref_name, self.fut_module, self.fut_module_deps
-        )
+        nspace = self.buildNamespace()
         nspace.update(globals())
 
         # run tests
+        ## TODO -- post refactor needs fix
         run_tests_logs, codecov = self.runTests(nspace=nspace)
 
         captured_arg_logs = instrumenter.get_logs()
@@ -118,13 +120,7 @@ class R2ETestProgram(object):
             indent=4,
         )
 
-    def buildNamespace(
-        self,
-        fut_name: str,
-        ref_name: str,
-        fut_module: ModuleType,
-        fut_module_deps: dict[str, Any],
-    ) -> dict[str, Any]:
+    def buildNamespace(self) -> dict[str, Any]:
         """Build namespace for the test runner.
 
         Notes:
@@ -142,15 +138,20 @@ class R2ETestProgram(object):
         """
         nspace = {}
 
-        nspace["fut_module"] = fut_module
-        nspace[fut_name] = getattr(fut_module, fut_name)
-        nspace[ref_name] = getattr(fut_module, ref_name)
+        ## NOTE : adding all of these seems hacky?...
+        ## nspace is essentially fut_module.__dict__
+        nspace["fut_module"] = self.fut_module
+        for funclass_name in self.funclass_names:
+            nspace[funclass_name] = self.get_funclass_object_by_name(funclass_name)
+            ref_name = f"reference_{funclass_name}"
+            nspace[ref_name] = self.get_funclass_object_by_name(ref_name)
 
-        nspace.update(fut_module_deps)
+        ## NOTE : this might not be necessary? dir(fut_module) should be enough and already includes the module itself
+        nspace.update(self.fut_module_deps)
 
-        for name in dir(fut_module):
+        for name in dir(self.fut_module):
             if not name.startswith("__"):  # ignore built-ins
-                nspace[name] = getattr(fut_module, name)
+                nspace[name] = getattr(self.fut_module, name)
 
         return nspace
 
@@ -160,6 +161,8 @@ class R2ETestProgram(object):
         Args:
             FUT (FunctionUnderTest): function under test.
             nspace (dict): namespace to run tests in.
+
+        ### --- TODO
         """
         test_suites, nspace = R2ETestLoader.load_tests(
             self.generated_tests, self.function_name, nspace
@@ -213,6 +216,10 @@ class R2ETestProgram(object):
 
     # def get_fut_function(self) -> FunctionType:
     #     return getattr(self.fut_module, self.fut_name)
+
+    def get_funclass_object_by_name(self, funclass_name: str) -> FunctionType | type:
+        # either a function or a class
+        return getattr(self.fut_module, funclass_name)  # type: ignore
 
     def get_funclass_ast(self, funclass_name: str) -> ast.FunctionDef | ast.ClassDef:
         for node in self.orig_file_ast.body:
