@@ -2,6 +2,7 @@ import ast
 import sys
 import json
 import importlib
+import importlib.util
 import coverage
 from typing import Any
 from copy import deepcopy
@@ -79,11 +80,11 @@ class R2ETestProgram(object):
             ref_name = f"reference_{funclass_name}"
             orig_ast = self.get_funclass_ast(funclass_name)
 
-            new_ast = deepcopy(orig_ast)
-            new_ast.name = ref_name
+            temp = deepcopy(orig_ast)
+            temp.name = ref_name
+            new_ast = ast.Module(body=[temp], type_ignores=[])
 
-            new_ast = NameReplacer(new_ast, funclass_name, ref_name).transform()  # type: ignore
-
+            new_ast = NameReplacer(new_ast, funclass_name, ref_name).transform()
             new_source = ast.unparse(new_ast)
 
             self.compile_and_exec(new_source)
@@ -247,8 +248,14 @@ class R2ETestProgram(object):
             ModuleType: imported module.
         """
 
-        spec = importlib.util.spec_from_file_location(module_name, module_path)  # type: ignore
-        module = importlib.util.module_from_spec(spec)  # type: ignore
+        spec = importlib.util.spec_from_file_location(module_name, module_path)
+
+        if spec is None or spec.loader is None:
+            raise ModuleNotFoundError(
+                f"Module {module_name} not found at {module_path}"
+            )
+
+        module = importlib.util.module_from_spec(spec)
         module.__package__ = ModuleExplorer.get_package_name(module_path)
         spec.loader.exec_module(module)
         sys.modules[module_name] = module
