@@ -17,3 +17,7 @@ reportMissingTypeStubs = false
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+
+[tool.poetry.scripts]
+r2e-test-server = "r2e_test_server.cli:app"
