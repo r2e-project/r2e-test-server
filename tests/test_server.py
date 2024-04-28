@@ -181,6 +181,10 @@ class TestR2EService(unittest.TestCase):
         for coverage_log in coverage_logs:
             self.assertTrue(len(coverage_log) > 0)
 
+    def is_correct(self, out):
+        self.assertEqual(out["error"], "")
+        self.assertEqual(out["output"], "")
+
     def test_self_equiv(self):
         service = R2EService()
         data = {"repo_name": "r2e-internal", "repo_path": "../r2e-internal"}
@@ -199,8 +203,7 @@ class TestR2EService(unittest.TestCase):
         service.setup_test(data)
 
         out = service.setup()
-        self.assertEqual(out["error"], "")
-        self.assertEqual(out["output"], "")
+        self.is_correct(out)
 
         out = service.exposed_execute("submit")
         self.assertEqual(out["output"], "")
@@ -226,12 +229,10 @@ class TestR2EService(unittest.TestCase):
         service.setup_test(data)
 
         out = service.setup()
-        self.assertEqual(out["error"], "")
-        self.assertEqual(out["output"], "")
+        self.is_correct(out)
 
         out = service.exposed_execute(gpt4_codegen)
-        self.assertEqual(out["error"], "")
-        self.assertEqual(out["output"], "")
+        self.is_correct(out)
 
         out = service.exposed_execute("submit")
         self.assertEqual(out["output"], "")
@@ -256,26 +257,21 @@ class TestR2EService(unittest.TestCase):
         service.setup_test(data)
 
         out = service.setup()
-        self.assertEqual(out["error"], "")
-        self.assertEqual(out["output"], "")
+        self.is_correct(out)
 
         out = service.exposed_execute(f"code = 'def f(): return a+b'")
-        self.assertEqual(out["error"], "")
-        self.assertEqual(out["output"], "")
+        self.is_correct(out)
 
         out = service.exposed_execute(f"code_ast = ast.parse(code)")
-        self.assertEqual(out["error"], "")
-        self.assertEqual(out["output"], "")
+        self.is_correct(out)
 
         out = service.exposed_execute(
             f"code_obj = dis.Bytecode(compile(code, '<string>', 'exec'))"
         )
-        self.assertEqual(out["error"], "")
-        self.assertEqual(out["output"], "")
+        self.is_correct(out)
 
         out = service.exposed_execute("symbols = []")
-        self.assertEqual(out["error"], "")
-        self.assertEqual(out["output"], "")
+        self.is_correct(out)
 
         out = service.exposed_execute(
             """for instr in code_obj: 
@@ -284,8 +280,7 @@ class TestR2EService(unittest.TestCase):
                             const_code = instr.argval
                             symbols.extend(handle_const_code(code_ast, const_code))"""
         )
-        self.assertEqual(out["error"], "")
-        self.assertEqual(out["output"], "")
+        self.is_correct(out)
 
         out = service.exposed_execute("print(symbols)")
         self.assertEqual(out["error"], "")
@@ -293,8 +288,7 @@ class TestR2EService(unittest.TestCase):
 
         fixed_gpt_code = function_code  # simulating: new attempt to fix the code
         out = service.exposed_execute(fixed_gpt_code)
-        self.assertEqual(out["error"], "")
-        self.assertEqual(out["output"], "")
+        self.is_correct(out)
 
         out = service.exposed_execute("submit")
         self.assertEqual(out["output"], "")
@@ -320,12 +314,10 @@ class TestR2EService(unittest.TestCase):
         service.setup_test(data)
 
         out = service.setup()
-        self.assertEqual(out["error"], "")
-        self.assertEqual(out["output"], "")
+        self.is_correct(out)
 
         out = service.exposed_execute(gpt4_codegen)
-        self.assertEqual(out["error"], "")
-        self.assertEqual(out["output"], "")
+        self.is_correct(out)
 
         out = service.exposed_execute("submit")
         self.assertEqual(out["output"], "")
@@ -333,8 +325,7 @@ class TestR2EService(unittest.TestCase):
         self.assertFalse(logs["run_tests_logs"]["test_1"]["valid"])
 
         out = service.exposed_execute(function_code)
-        self.assertEqual(out["error"], "")
-        self.assertEqual(out["output"], "")
+        self.is_correct(out)
 
         out = service.exposed_execute("submit")
         self.assertEqual(out["output"], "")
@@ -390,8 +381,7 @@ class TestR2EService(unittest.TestCase):
         service.setup_test(data)
 
         out = service.setup()
-        self.assertEqual(out["error"], "")
-        self.assertEqual(out["output"], "")
+        self.is_correct(out)
 
         out = service.exposed_execute("submit")
         self.assertEqual(out["output"], "")
