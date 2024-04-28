@@ -44,8 +44,11 @@ class R2EService(rpyc.Service):
 
     def setup_function(self, data: str):
         data_dict = json.loads(data)
-        self.function_name: str = data_dict["function_name"]
-        self.file_path: str = data_dict["file_path"]
+        self.funclass_names: list[str] = data_dict["funclass_names"]  # type: ignore
+        if self.file_path == "":
+            self.file_path = data_dict["file_path"]  # type: ignore
+        else:
+            assert self.file_path == data_dict["file_path"]
 
     def setup_test(self, data: str):
         data_dict = json.loads(data)
@@ -59,7 +62,7 @@ class R2EService(rpyc.Service):
                 self.r2e_test_program = R2ETestProgram(
                     self.repo_name,
                     self.repo_path,
-                    self.function_name,
+                    self.funclass_names,
                     self.file_path,
                     self.generated_tests,
                 )
