@@ -120,7 +120,11 @@ class R2ETestProgram(object):
         return json.dumps(result, indent=4)
 
     def instrumentCode(self, instrumenter: Instrumenter):
-        """Instrument the code under test."""
+        """Instrument the code under test.
+
+        Args:
+            instrumenter (Instrumenter): Instrumenter object.
+        """
         for funclass_name in self.funclass_names:
             if "." in funclass_name:
                 class_name, method_name = funclass_name.split(".")
@@ -173,7 +177,6 @@ class R2ETestProgram(object):
         cov.stop()
         cov.save()
 
-        # TODO: handle methods
         codecovs = [
             R2ECodeCoverage(cov, self.fut_module, self.file_path, funclass_name)
             for funclass_name in self.funclass_names

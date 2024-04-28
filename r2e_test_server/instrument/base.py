@@ -28,7 +28,10 @@ class Instrumenter:
 
     def instrument_method(self, class_obj, method):
         """Wrap the given method with the instrumentation logic."""
+        # get the method from the class
         method = getattr(class_obj, method)
+
+        # instrument the method and set it back to the class
         setattr(class_obj, method.__name__, self.instrument(method))
         return class_obj
 

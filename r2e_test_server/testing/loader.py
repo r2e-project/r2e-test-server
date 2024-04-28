@@ -10,6 +10,8 @@ class R2ETestLoader:
     def load_tests(
         test_cases: dict[str, str], funclass_names: list[str], nspace: dict[str, Any]
     ) -> tuple[dict[str, TestSuite], dict[str, Any]]:
+        """Load the test cases into test suites."""
+
         test_suites = {}
 
         for test_id, test_case in test_cases.items():
@@ -22,6 +24,7 @@ class R2ETestLoader:
     def load_test(
         test_case: str, funclass_names: list[str], nspace: dict[str, Any]
     ) -> TestSuite:
+        """Load a test case into a test suite and add it to the namespace."""
 
         for funclass_name in funclass_names:
             ref_name = f"reference_{funclass_name}"
@@ -46,10 +49,12 @@ class R2ETestLoader:
 
     @staticmethod
     def add_test_to_namespace(test_case: str, nspace: dict[str, Any]):
+        """Add the test case to the namespace."""
         exec(test_case, nspace, nspace)
 
     @staticmethod
     def create_test_suite(nspace: dict[str, Any]) -> tuple[TestSuite, list[str]]:
+        """Create a test suite from the test case."""
         loader, test_suite = TestLoader(), TestSuite()
         test_classes = []
 
@@ -62,5 +67,6 @@ class R2ETestLoader:
 
     @staticmethod
     def clean_namespace(nspace: dict[str, Any], test_classes: list[str]):
+        """Remove the test classes from the namespace."""
         for name in test_classes:
             nspace.pop(name, None)
