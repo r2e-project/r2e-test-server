@@ -96,9 +96,11 @@ class R2ETestProgram(object):
         for funclass_name in self.funclass_names:
             ## TODO: instrumenter only works for functions, not classes
             ## handle classes -- need to pass class-method information as well
-            funclass_object = self.get_funclass_object_by_name(funclass_name)
+            funclass_object = self.get_funclass_object(funclass_name)
+
             if isinstance(funclass_object, type):
                 continue
+
             funclass_object = instrumenter.instrument(funclass_object)
             setattr(
                 self.fut_module,
@@ -113,18 +115,16 @@ class R2ETestProgram(object):
         # run tests
         ## TODO -- coverage doesn't work for classmethods yet (works for classes..)
         run_tests_logs, codecovs = self.runTests(nspace=nspace)
-
         captured_arg_logs = instrumenter.get_logs()
         coverage_logs = [codecov.report_coverage() for codecov in codecovs]
 
-        return json.dumps(
-            {
-                "run_tests_logs": run_tests_logs,
-                "coverage_logs": coverage_logs,
-                "captured_arg_logs": captured_arg_logs,
-            },
-            indent=4,
-        )
+        result = {
+            "run_tests_logs": run_tests_logs,
+            "coverage_logs": coverage_logs,
+            "captured_arg_logs": captured_arg_logs,
+        }
+
+        return json.dumps(result, indent=4)
 
     def buildNamespace(self) -> dict[str, Any]:
         """Build namespace for the test runner.
@@ -147,9 +147,9 @@ class R2ETestProgram(object):
         ## NOTE : adding both nsoace and fut_module.__dict__  seems hacky?...
         nspace["fut_module"] = self.fut_module
         for funclass_name in self.funclass_names:
-            nspace[funclass_name] = self.get_funclass_object_by_name(funclass_name)
+            nspace[funclass_name] = self.get_funclass_object(funclass_name)
             ref_name = f"reference_{funclass_name}"
-            nspace[ref_name] = self.get_funclass_object_by_name(ref_name)
+            nspace[ref_name] = self.get_funclass_object(ref_name)
 
         ## NOTE : this might not be necessary? dir(fut_module) should be enough and already includes the module itself
         nspace.update(self.fut_module_deps)
@@ -224,14 +224,12 @@ class R2ETestProgram(object):
 
         return fut_module, fut_module_deps
 
-    # def get_fut_function(self) -> FunctionType:
-    #     return getattr(self.fut_module, self.fut_name)
-
-    def get_funclass_object_by_name(self, funclass_name: str) -> FunctionType | type:
-        # either a function or a class
-        return getattr(self.fut_module, funclass_name)  # type: ignore
+    def get_funclass_object(self, funclass_name: str) -> FunctionType | type:
+        """Get the function or class object from the module by name."""
+        return getattr(self.fut_module, funclass_name)
 
     def get_funclass_ast(self, funclass_name: str) -> ast.FunctionDef | ast.ClassDef:
+        """Get the function or class AST node from the original file by name."""
         for node in self.orig_file_ast.body:
             if isinstance(node, ast.ClassDef) or isinstance(node, ast.FunctionDef):
                 if node.name == funclass_name:
