@@ -5,12 +5,16 @@ from coverage import Coverage
 
 class R2ECodeCoverage(object):
     def __init__(
-        self, cov: Coverage, fut_module: ModuleType, fut_module_path: str, fut_name: str
+        self,
+        cov: Coverage,
+        fut_module: ModuleType,
+        fut_module_path: str,
+        funclass_name: str,
     ):
         self.cov = cov
         self.fut_module = fut_module
         self.fut_module_path = fut_module_path
-        self.fut_name = fut_name
+        self.funclass_name = funclass_name
 
     def report_coverage(self):
         if not self.source_exists():
@@ -116,7 +120,9 @@ class R2ECodeCoverage(object):
     def source_exists(self) -> bool:
         """Check if the source code exists in a file."""
         try:
-            lines_info = inspect.getsourcelines(getattr(self.fut_module, self.fut_name))
+            lines_info = inspect.getsourcelines(
+                getattr(self.fut_module, self.funclass_name)
+            )
         except OSError:
             return False
 
