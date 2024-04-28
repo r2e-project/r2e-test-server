@@ -124,7 +124,7 @@ class R2ECodeCoverage(object):
                 getattr(self.fut_module, self.funclass_name)
             )
         except OSError:
-            print(f"{self.funclass_name} not found\n{self.fut_module.__dict__}")
+            # print(f"{self.funclass_name} not found\n{self.fut_module.__dict__}")
             return False
 
         # set FUT's first and last line, if exists
