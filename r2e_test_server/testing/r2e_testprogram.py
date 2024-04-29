@@ -32,12 +32,14 @@ class R2ETestProgram(object):
         funclass_names: list[str],
         file_path: str,
         generated_tests: dict[str, str],
+        codegen_mode: bool = False,
     ):
         self.repo_name = repo_name
         self.repo_path = repo_path
         self.funclass_names = funclass_names
         self.file_path = file_path
         self.generated_tests = generated_tests
+        self.codegen_mode = codegen_mode
 
         with open(file_path, "r") as file:
             self.orig_file_content = file.read()
@@ -50,6 +52,9 @@ class R2ETestProgram(object):
         # setup reference function
         # creates: ref_function(s) in fut_module
         self.setupRefs()
+
+        # removes the funclasses from fut_module if codegen_mode
+        self.setup_codegen_mode()
 
     def setupEnv(self):
         """Setup the environment for testing.
@@ -92,6 +97,19 @@ class R2ETestProgram(object):
             self.compile_and_exec(new_source)
 
         return
+
+    def setup_codegen_mode(self):
+        if self.codegen_mode:
+            for funclass_name in self.funclass_names:
+                if "." in funclass_name:
+                    class_name, method_name = funclass_name.split(".")
+                    class_obj = self.get_funclass_object(class_name)
+                    if class_obj:
+                        delattr(self.fut_module, class_name)
+                else:
+                    funclass_object = self.get_funclass_object(funclass_name)
+                    if funclass_object and not isinstance(funclass_object, type):
+                        delattr(self.fut_module, funclass_name)
 
     def submit(self) -> str:
         """Submit the function/method under test to the R2E test framework.

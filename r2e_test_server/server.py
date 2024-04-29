@@ -31,7 +31,7 @@ class CaptureOutput:
 @rpyc.service
 class R2EService(rpyc.Service):
     def __init__(self):
-        pass
+        self.codegen_mode: bool = False
 
     def on_connect(self, conn):
         pass
@@ -61,6 +61,10 @@ class R2EService(rpyc.Service):
         self.generated_tests: dict[str, str] = data_dict["generated_tests"]
 
     @rpyc.exposed
+    def setup_codegen_mode(self):
+        self.codegen_mode = True
+
+    @rpyc.exposed
     def init(self):
         try:
             stdout_buffer = StringIO()
@@ -72,6 +76,7 @@ class R2EService(rpyc.Service):
                     self.funclass_names,
                     self.file_path,
                     self.generated_tests,
+                    self.codegen_mode,
                 )
 
             output = stdout_buffer.getvalue().strip()
