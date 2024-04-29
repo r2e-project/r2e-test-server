@@ -228,6 +228,8 @@ class TestR2EService(unittest.TestCase):
         data = json.dumps(data)
         service.setup_test(data)
 
+        service.setup_codegen_mode()
+
         out = service.init()
         self.is_empty_output(out)
 
@@ -255,6 +257,8 @@ class TestR2EService(unittest.TestCase):
         data = {"generated_tests": {"test_1": test_bytecode_globals}}
         data = json.dumps(data)
         service.setup_test(data)
+
+        service.setup_codegen_mode()
 
         out = service.init()
         self.is_empty_output(out)
@@ -312,6 +316,8 @@ class TestR2EService(unittest.TestCase):
         data = {"generated_tests": {"test_1": test_bytecode_globals}}
         data = json.dumps(data)
         service.setup_test(data)
+
+        service.setup_codegen_mode()
 
         out = service.init()
         self.is_empty_output(out)
