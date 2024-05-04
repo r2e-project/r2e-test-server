@@ -1,11 +1,11 @@
 import ast
 import sys
 import json
+import coverage
 import importlib
 import importlib.util
-import coverage
-from typing import Any
 from copy import deepcopy
+from typing import Any, Union
 from types import ModuleType, FunctionType
 
 
@@ -27,15 +27,15 @@ class R2ETestProgram(object):
 
     def __init__(
         self,
-        repo_name: str,
+        repo_id: str,
         repo_path: str,
         funclass_names: list[str],
         file_path: str,
         generated_tests: dict[str, str],
         codegen_mode: bool = False,
     ):
-        self.repo_name = repo_name
-        self.repo_path = repo_path
+        self.repo_id = repo_id
+        self.repo_path = f"/repos/{repo_id}"
         self.funclass_names = funclass_names
         self.file_path = file_path
         self.generated_tests = generated_tests
@@ -232,11 +232,13 @@ class R2ETestProgram(object):
 
         return fut_module, fut_module_deps
 
-    def get_funclass_object(self, name: str) -> FunctionType | type:
+    def get_funclass_object(self, name: str) -> Union[FunctionType, type]:
         """Get the function or class object from the module by name."""
         return getattr(self.fut_module, name)
 
-    def get_funclass_ast(self, funclass_name: str) -> ast.FunctionDef | ast.ClassDef:
+    def get_funclass_ast(
+        self, funclass_name: str
+    ) -> Union[ast.FunctionDef, ast.ClassDef]:
         """Get the function or class AST node from the original file by name."""
         for node in self.orig_file_ast.body:
             if isinstance(node, ast.ClassDef) or isinstance(node, ast.FunctionDef):

@@ -187,7 +187,7 @@ class TestR2EService(unittest.TestCase):
 
     def test_self_equiv(self):
         service = R2EService()
-        data = {"repo_name": "r2e-internal", "repo_path": "../r2e-internal"}
+        data = {"repo_id": "r2e-internal", "repo_path": "../r2e-internal"}
         data = json.dumps(data)
         service.setup_repo(data)
 
@@ -213,7 +213,7 @@ class TestR2EService(unittest.TestCase):
 
     def test_gpt4_codegen(self):
         service = R2EService()
-        data = {"repo_name": "r2e-internal", "repo_path": "../r2e-internal"}
+        data = {"repo_id": "r2e-internal", "repo_path": "../r2e-internal"}
         data = json.dumps(data)
         service.setup_repo(data)
 
@@ -243,7 +243,7 @@ class TestR2EService(unittest.TestCase):
 
     def test_gpt4_agentic(self):
         service = R2EService()
-        data = {"repo_name": "r2e-internal", "repo_path": "../r2e-internal"}
+        data = {"repo_id": "r2e-internal", "repo_path": "../r2e-internal"}
         data = json.dumps(data)
         service.setup_repo(data)
 
@@ -301,7 +301,7 @@ class TestR2EService(unittest.TestCase):
 
     def test_gpt4_repair_codegen(self):
         service = R2EService()
-        data = {"repo_name": "r2e-internal", "repo_path": "../r2e-internal"}
+        data = {"repo_id": "r2e-internal", "repo_path": "../r2e-internal"}
         data = json.dumps(data)
         service.setup_repo(data)
 
@@ -340,7 +340,7 @@ class TestR2EService(unittest.TestCase):
 
     def test_classmethod_selfequiv(self):
         service = R2EService()
-        data = {"repo_name": "r2e-internal", "repo_path": "../r2e-internal"}
+        data = {"repo_id": "r2e-internal", "repo_path": "../r2e-internal"}
         data = json.dumps(data)
         service.setup_repo(data)
 
@@ -366,7 +366,7 @@ class TestR2EService(unittest.TestCase):
 
     def test_multifunction(self):
         service = R2EService()
-        data = {"repo_name": "r2e-internal", "repo_path": "../r2e-internal"}
+        data = {"repo_id": "r2e-internal", "repo_path": "../r2e-internal"}
         data = json.dumps(data)
         service.setup_repo(data)
 
