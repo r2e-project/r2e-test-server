@@ -46,7 +46,7 @@ class R2EService(rpyc.Service):
     @rpyc.exposed
     def setup_repo(self, data: str):
         data_dict = json.loads(data)
-        self.repo_name: str = data_dict["repo_name"]
+        self.repo_id: str = data_dict["repo_id"]
         self.repo_path: str = data_dict["repo_path"]
 
     @rpyc.exposed
@@ -71,7 +71,7 @@ class R2EService(rpyc.Service):
             stderr_buffer = StringIO()
             with CaptureOutput(stdout=stdout_buffer, stderr=stderr_buffer):
                 self.r2e_test_program = R2ETestProgram(
-                    self.repo_name,
+                    self.repo_id,
                     self.repo_path,
                     self.funclass_names,
                     self.file_path,
