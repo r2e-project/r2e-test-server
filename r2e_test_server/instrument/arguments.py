@@ -194,7 +194,7 @@ class Serializers:
             if isinstance(obj, np.ndarray):  # type: ignore
                 if obj.size > 25:
                     return f"np.ndarray(shape={obj.shape}, dtype={obj.dtype})"
-                return obj.round(2)
+                return f"np-array: {obj.round(2)}"
         except:
             pass
         return None
