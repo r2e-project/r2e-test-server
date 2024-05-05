@@ -37,7 +37,7 @@ class R2ETestProgram(object):
     ):
         ## file_path should be relative to repo_path
         self.repo_id = repo_id
-        self.repo_path = repo_path  # f"/repos/{repo_id}"
+        self.repo_path = f"/repos/{repo_id}"
         self.funclass_names = funclass_names
         self.file_path = os.path.join(self.repo_path, file_path)
         self.generated_tests = generated_tests
