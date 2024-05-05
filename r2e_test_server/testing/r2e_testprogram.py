@@ -1,3 +1,4 @@
+import os
 import ast
 import sys
 import json
@@ -34,14 +35,15 @@ class R2ETestProgram(object):
         generated_tests: dict[str, str],
         codegen_mode: bool = False,
     ):
+        ## file_path should be relative to repo_path
         self.repo_id = repo_id
-        self.repo_path = f"/repos/{repo_id}"
+        self.repo_path = repo_path  # f"/repos/{repo_id}"
         self.funclass_names = funclass_names
-        self.file_path = file_path
+        self.file_path = os.path.join(self.repo_path, file_path)
         self.generated_tests = generated_tests
         self.codegen_mode = codegen_mode
 
-        with open(file_path, "r") as file:
+        with open(self.file_path, "r") as file:
             self.orig_file_content = file.read()
             self.orig_file_ast = ast.parse(self.orig_file_content)
 
@@ -216,13 +218,21 @@ class R2ETestProgram(object):
         """
 
         try:
-            if self.repo_path not in sys.path:
-                sys.path.insert(0, self.repo_path)
+            all_repo_to_file_paths: list[str] = [self.repo_path]
+            curr_path = os.path.dirname(self.file_path)
+            while curr_path != self.repo_path:
+                all_repo_to_file_paths.append(curr_path)
+                curr_path = os.path.dirname(curr_path)
+
+            for repo_to_file_path in all_repo_to_file_paths:
+                if repo_to_file_path not in sys.path:
+                    sys.path.insert(0, repo_to_file_path)
 
             fut_module = self.import_module_dynamic("fut_module", self.file_path)
             fut_module_deps = ModuleExplorer.get_dependencies(self.file_path)
 
-            sys.path.remove(self.repo_path)
+            for repo_to_file_path in all_repo_to_file_paths:
+                sys.path.remove(repo_to_file_path)
         except ModuleNotFoundError as e:
             print(f"[ERROR] {str(e)}: Library not installed?")
             raise

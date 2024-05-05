@@ -193,7 +193,7 @@ class TestR2EService(unittest.TestCase):
 
         data = {
             "funclass_names": ["get_funclass_globals"],
-            "file_path": "../r2e-internal/r2e/pat/dependency_slicer/globals_finder/bytecode_globals.py",
+            "file_path": "r2e/pat/dependency_slicer/globals_finder/bytecode_globals.py",
         }
         data = json.dumps(data)
         service.setup_function(data)
@@ -219,7 +219,7 @@ class TestR2EService(unittest.TestCase):
 
         data = {
             "funclass_names": ["get_funclass_globals"],
-            "file_path": "../r2e-internal/r2e/pat/dependency_slicer/globals_finder/bytecode_globals.py",
+            "file_path": "r2e/pat/dependency_slicer/globals_finder/bytecode_globals.py",
         }
         data = json.dumps(data)
         service.setup_function(data)
@@ -249,7 +249,7 @@ class TestR2EService(unittest.TestCase):
 
         data = {
             "funclass_names": ["get_funclass_globals"],
-            "file_path": "../r2e-internal/r2e/pat/dependency_slicer/globals_finder/bytecode_globals.py",
+            "file_path": "r2e/pat/dependency_slicer/globals_finder/bytecode_globals.py",
         }
         data = json.dumps(data)
         service.setup_function(data)
@@ -307,7 +307,7 @@ class TestR2EService(unittest.TestCase):
 
         data = {
             "funclass_names": ["get_funclass_globals"],
-            "file_path": "../r2e-internal/r2e/pat/dependency_slicer/globals_finder/bytecode_globals.py",
+            "file_path": "r2e/pat/dependency_slicer/globals_finder/bytecode_globals.py",
             "function_code": function_code,
         }
         data = json.dumps(data)
@@ -346,7 +346,7 @@ class TestR2EService(unittest.TestCase):
 
         data = {
             "funclass_names": ["DependencyGraph.topological_file_sort"],
-            "file_path": "../r2e-internal/r2e/pat/dependency_slicer/dependency_graph.py",
+            "file_path": "r2e/pat/dependency_slicer/dependency_graph.py",
         }
         data = json.dumps(data)
         service.setup_function(data)
@@ -377,7 +377,7 @@ class TestR2EService(unittest.TestCase):
                 "get_argument_names",
                 "handle_const_code",
             ],
-            "file_path": "../r2e-internal/r2e/pat/dependency_slicer/globals_finder/bytecode_globals.py",
+            "file_path": "r2e/pat/dependency_slicer/globals_finder/bytecode_globals.py",
         }
         data = json.dumps(data)
         service.setup_function(data)
