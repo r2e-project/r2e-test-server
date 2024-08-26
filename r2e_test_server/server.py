@@ -66,9 +66,9 @@ class R2EService(rpyc.Service):
 
     @rpyc.exposed
     def init(self):
+        stdout_buffer = StringIO()
+        stderr_buffer = StringIO()
         try:
-            stdout_buffer = StringIO()
-            stderr_buffer = StringIO()
             with CaptureOutput(stdout=stdout_buffer, stderr=stderr_buffer):
                 self.r2e_test_program = R2ETestProgram(
                     self.repo_id,
