@@ -87,7 +87,10 @@ class R2EService(rpyc.Service):
         except Exception as e:
             traceback_message = traceback.format_exc()
             output = stdout_buffer.getvalue().strip()
-            return {"error": f"Error: {traceback_message}\n\nSmall Error: {repr(e)}", "output": output}
+            return {
+                "error": f"Error: {traceback_message}\n\nSmall Error: {repr(e)}",
+                "output": output,
+            }
 
     @rpyc.exposed
     def submit(self):
