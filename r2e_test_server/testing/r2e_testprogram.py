@@ -18,6 +18,12 @@ from r2e_test_server.modules.explorer import ModuleExplorer
 from r2e_test_server.instrument import Instrumenter, CaptureArgsInstrumenter
 
 
+if sys.version_info < (3, 9):
+    import astor
+
+    ast.unparse = lambda node: astor.to_source(node)
+
+
 class R2ETestProgram(object):
     """A program that runs tests in the R2E framework.
 
