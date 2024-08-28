@@ -114,7 +114,7 @@ class R2ECodeCoverage(object):
         """Apply a filter function to a dictionary of items."""
         return dict(filter(filter_func, data.items()))
 
-    def filter_lines_list(self, data, filter_func) -> Dict:
+    def filter_lines_list(self, data, filter_func) -> List:
         """Apply a filter function to a list of items."""
         return list(filter(filter_func, data))
 
