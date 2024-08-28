@@ -10,7 +10,7 @@ repository = "https://github.com/r2e-project/r2e-test-server"
 [tool.poetry.dependencies]
 python = "^3.7"
 rpyc = "^6.0.0"
-coverage = "^7.5.0"
+coverage = "^7"
 pyright = "^1.1.360"
 typer = "^0.12.3"
 
