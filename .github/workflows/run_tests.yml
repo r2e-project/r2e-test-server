@@ -32,4 +32,4 @@ jobs:
         poetry install
 
     - name: Run tests
-      run: python -m unittest tests/test_server_general.py
+      run: poetry run python -m unittest tests/test_server_general.py
