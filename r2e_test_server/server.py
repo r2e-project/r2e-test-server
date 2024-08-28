@@ -2,6 +2,7 @@ import sys
 import json
 import traceback
 from threading import Thread, Event
+from typing import List, Dict, Optional
 from io import StringIO
 
 import rpyc
@@ -46,19 +47,19 @@ class R2EService(rpyc.Service):
     @rpyc.exposed
     def setup_repo(self, data: str):
         data_dict = json.loads(data)
-        self.repo_id: str | None = data_dict["repo_id"]
+        self.repo_id: Optional[str] = data_dict["repo_id"]
         self.repo_path: str = data_dict["repo_path"]
 
     @rpyc.exposed
     def setup_function(self, data: str):
         data_dict = json.loads(data)
-        self.funclass_names: list[str] = data_dict["funclass_names"]
+        self.funclass_names: List[str] = data_dict["funclass_names"]
         self.file_path = data_dict["file_path"]
 
     @rpyc.exposed
     def setup_test(self, data: str):
         data_dict = json.loads(data)
-        self.generated_tests: dict[str, str] = data_dict["generated_tests"]
+        self.generated_tests: Dict[str, str] = data_dict["generated_tests"]
 
     @rpyc.exposed
     def setup_codegen_mode(self):

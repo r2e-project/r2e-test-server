@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Dict, List, Tuple
 from unittest import TestLoader, TestSuite, TestCase
 
 from r2e_test_server.testing.cleaner import R2ETestCleaner
@@ -8,8 +8,8 @@ class R2ETestLoader:
 
     @staticmethod
     def load_tests(
-        test_cases: dict[str, str], funclass_names: list[str], nspace: dict[str, Any]
-    ) -> tuple[dict[str, TestSuite], dict[str, Any]]:
+        test_cases: Dict[str, str], funclass_names: List[str], nspace: Dict[str, Any]
+    ) -> Tuple[Dict[str, TestSuite], Dict[str, Any]]:
         """Load the test cases into test suites."""
 
         test_suites = {}
@@ -22,7 +22,7 @@ class R2ETestLoader:
 
     @staticmethod
     def load_test(
-        test_case: str, funclass_names: list[str], nspace: dict[str, Any]
+        test_case: str, funclass_names: List[str], nspace: Dict[str, Any]
     ) -> TestSuite:
         """Load a test case into a test suite and add it to the namespace."""
 
@@ -48,12 +48,12 @@ class R2ETestLoader:
         return test_suite
 
     @staticmethod
-    def add_test_to_namespace(test_case: str, nspace: dict[str, Any]):
+    def add_test_to_namespace(test_case: str, nspace: Dict[str, Any]):
         """Add the test case to the namespace."""
         exec(test_case, nspace, nspace)
 
     @staticmethod
-    def create_test_suite(nspace: dict[str, Any]) -> tuple[TestSuite, list[str]]:
+    def create_test_suite(nspace: Dict[str, Any]) -> Tuple[TestSuite, List[str]]:
         """Create a test suite from the test case."""
         loader, test_suite = TestLoader(), TestSuite()
         test_classes = []
@@ -66,7 +66,7 @@ class R2ETestLoader:
         return test_suite, test_classes
 
     @staticmethod
-    def clean_namespace(nspace: dict[str, Any], test_classes: list[str]):
+    def clean_namespace(nspace: Dict[str, Any], test_classes: List[str]):
         """Remove the test classes from the namespace."""
         for name in test_classes:
             nspace.pop(name, None)

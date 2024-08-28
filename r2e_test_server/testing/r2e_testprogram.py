@@ -6,7 +6,7 @@ import coverage
 import importlib
 import importlib.util
 from copy import deepcopy
-from typing import Any, Union
+from typing import Any, Union, List, Dict, Optional, Tuple
 from types import ModuleType, FunctionType
 
 
@@ -28,11 +28,11 @@ class R2ETestProgram(object):
 
     def __init__(
         self,
-        repo_id: str | None,
+        repo_id: Optional[str],
         repo_path: str,
-        funclass_names: list[str],
+        funclass_names: List[str],
         file_path: str,
-        generated_tests: dict[str, str],
+        generated_tests: Dict[str, str],
         codegen_mode: bool = False,
     ):
         ## file_path should be relative to repo_path
@@ -164,7 +164,7 @@ class R2ETestProgram(object):
                     funclass_object = instrumenter.instrument(funclass_object)
                     setattr(self.fut_module, funclass_name, funclass_object)
 
-    def buildNamespace(self) -> dict[str, Any]:
+    def buildNamespace(self) -> Dict[str, Any]:
         """Build namespace for the test runner.
 
         Notes:
@@ -176,7 +176,7 @@ class R2ETestProgram(object):
         nspace.update(self.fut_module.__dict__)
         return nspace
 
-    def runTests(self, nspace: dict[str, Any]):
+    def runTests(self, nspace: Dict[str, Any]):
         """Run tests for the function under test.
 
         Args:
@@ -209,7 +209,7 @@ class R2ETestProgram(object):
 
     # helpers
 
-    def get_fut_module(self) -> tuple[ModuleType, dict[str, Any]]:
+    def get_fut_module(self) -> Tuple[ModuleType, Dict[str, Any]]:
         """Dynamically import and retrieve the module containing the function under test.
         Also retrieve the dependencies of the module.
 
@@ -217,11 +217,11 @@ class R2ETestProgram(object):
             FUT (FunctionUnderTest): function under test.
 
         Returns:
-            tuple[ModuleType, dict[str, Any]]: module and its dependencies.
+            Tuple[ModuleType, Dict[str, Any]]: module and its dependencies.
         """
 
         try:
-            all_repo_to_file_paths: list[str] = [self.repo_path]
+            all_repo_to_file_paths: List[str] = [self.repo_path]
             curr_path = os.path.dirname(self.file_path)
             while curr_path != self.repo_path:
                 all_repo_to_file_paths.append(curr_path)
