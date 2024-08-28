@@ -46,7 +46,7 @@ class R2EService(rpyc.Service):
     @rpyc.exposed
     def setup_repo(self, data: str):
         data_dict = json.loads(data)
-        self.repo_id: str = data_dict["repo_id"]
+        self.repo_id: str | None = data_dict["repo_id"]
         self.repo_path: str = data_dict["repo_path"]
 
     @rpyc.exposed
