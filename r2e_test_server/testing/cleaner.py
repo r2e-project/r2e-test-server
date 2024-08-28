@@ -1,7 +1,13 @@
 import re
 import ast
+import sys
 
 from r2e_test_server.ast.transformer import ImportAliasReplacer
+
+if sys.version_info < (3, 9):
+    import astor
+
+    ast.unparse = lambda node: astor.to_source(node)
 
 
 class R2ETestCleaner:
