@@ -261,8 +261,6 @@ class R2ETestProgram(object):
             if path not in sys.path:
                 sys.path.insert(0, path)
 
-        print(f"{paths=}")
-
         try:
             fut_module = self.import_module_dynamic("fut_module", self.file_path)
             fut_module_deps = ModuleExplorer.get_dependencies(self.file_path)
