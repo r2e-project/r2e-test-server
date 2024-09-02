@@ -243,15 +243,15 @@ class R2ETestProgram(object):
         return fut_module, fut_module_deps
 
     def import_fut_module_with_paths(
-        self, paths: list[str]
-    ) -> Tuple[ModuleType, dict[str, Any]]:
+        self, paths: List[str]
+    ) -> Tuple[ModuleType, Dict[str, Any]]:
         """Attempt to dynamically import the fut_module with the given paths in sys.path.
 
         Args:
-            paths (list[str]): paths to add to sys.path.
+            paths (List[str]): paths to add to sys.path.
 
         Returns:
-            Tuple[ModuleType, dict[str, Any]]: module and its dependencies.
+            Tuple[ModuleType, Dict[str, Any]]: module and its dependencies.
 
         Note: if module is not found, the paths are removed from sys.path.
         the exception raised should be handled by the caller.
@@ -270,15 +270,15 @@ class R2ETestProgram(object):
 
         return fut_module, fut_module_deps
 
-    def get_paths_to_submodules(self) -> list[str]:
+    def get_paths_to_submodules(self) -> List[str]:
         """Build extended paths to the submodules that fut_module can import.
 
         Returns:
-            list[str]: extended paths.
+            List[str]: extended paths.
 
         Note: used in case of a non-standard/non-flat directory structure.
         """
-        submodule_paths: list[str] = [self.repo_path]
+        submodule_paths: List[str] = [self.repo_path]
         curr_path = os.path.dirname(self.file_path)
         while curr_path != self.repo_path:
             submodule_paths.append(curr_path)
