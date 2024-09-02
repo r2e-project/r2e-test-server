@@ -1,17 +1,18 @@
-import ast
 import os
+import ast
+from typing import Dict, List
 
 
 class ModuleExplorer:
     @staticmethod
-    def get_member_names(module_path: str) -> list[str]:
+    def get_member_names(module_path: str) -> List[str]:
         """Get the names of all members (functions, classes, variables) defined in a module.
 
         Args:
             module_path (str): The path to the module file.
 
         Returns:
-            list[str]: A list of member names.
+            List[str]: A list of member names.
         """
         with open(module_path, "r") as file:
             tree = ast.parse(file.read())
@@ -72,14 +73,14 @@ class ModuleExplorer:
         return current_dir
 
     @staticmethod
-    def get_dependencies(path_to_module: str) -> dict[str, object]:
+    def get_dependencies(path_to_module: str) -> Dict[str, object]:
         """Get the dependencies of a module.
 
         Args:
             path_to_module (str): The path to the module file.
 
         Returns:
-            dict[str, object]: A map `{name: imported_module}`
+            Dict[str, object]: A map `{name: imported_module}`
                 where `name` is the name of an imported module
                 and `imported_module` is the module object.
         """

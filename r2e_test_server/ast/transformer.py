@@ -1,4 +1,5 @@
 import ast
+from typing import List
 
 
 class ASTTransformer(ast.NodeTransformer):
@@ -16,14 +17,14 @@ class ImportAliasReplacer(ASTTransformer):
 
     Args:
         tree (ast.Module): AST tree of the code.
-        names (list[str]): list of original names to be used in the code.
+        names (List[str]): list of original names to be used in the code.
     """
 
-    def __init__(self, tree: ast.Module, names: list[str]):
+    def __init__(self, tree: ast.Module, names: List[str]):
         super().__init__(tree)
         self.aliases = self.get_all_aliases(names)
 
-    def get_all_aliases(self, names: list[str]) -> dict:
+    def get_all_aliases(self, names: List[str]) -> dict:
         aliases = {}
         for node in self.tree.body:
             if isinstance(node, (ast.Import, ast.ImportFrom)):

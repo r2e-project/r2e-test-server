@@ -4,6 +4,7 @@ import datetime
 from typing import Any
 from decimal import Decimal
 from collections.abc import Iterable
+from typing import List, Dict
 
 from r2e_test_server.instrument.base import Instrumenter
 
@@ -44,7 +45,7 @@ class CaptureArgsInstrumenter(Instrumenter):
             }
         )
 
-    def get_logs(self) -> list[dict[str, Any]]:
+    def get_logs(self) -> List[Dict[str, Any]]:
         logs = []
         for captured_args in self.captured_args_list:
 

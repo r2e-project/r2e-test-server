@@ -1,6 +1,7 @@
 import inspect
 from types import ModuleType
 from coverage import Coverage
+from typing import Dict, List
 
 
 class R2ECodeCoverage(object):
@@ -29,7 +30,7 @@ class R2ECodeCoverage(object):
 
         return metrics
 
-    def get_line_metrics(self) -> dict:
+    def get_line_metrics(self) -> Dict:
         """Get the line coverage metrics for the FUT."""
         num_executable_lines = len(self.executable_lines)
         num_excluded_lines = len(self.excluded_lines)
@@ -51,7 +52,7 @@ class R2ECodeCoverage(object):
 
         return coverage_metrics
 
-    def get_branch_metrics(self) -> dict:
+    def get_branch_metrics(self) -> Dict:
         """Get the branch coverage metrics for the FUT."""
         num_executed_branches = len(self.executed_branches)
         num_missing_branches = len(self.missing_branches)
@@ -76,11 +77,11 @@ class R2ECodeCoverage(object):
         self.cov.load()
         analysis = self.cov._analyze(self.fut_module_path)
 
-        self.executable_lines: list = sorted(analysis.statements)
-        self.excluded_lines: list = sorted(analysis.excluded)
-        self.unexecuted_lines: list = sorted(analysis.missing)
-        self.missing_branches: dict = analysis.missing_branch_arcs()
-        self.executed_branches: dict = analysis.executed_branch_arcs()
+        self.executable_lines: List = sorted(analysis.statements)
+        self.excluded_lines: List = sorted(analysis.excluded)
+        self.unexecuted_lines: List = sorted(analysis.missing)
+        self.missing_branches: Dict = analysis.missing_branch_arcs()
+        self.executed_branches: Dict = analysis.executed_branch_arcs()
 
     def limit_data_to_target_source(self):
         """Filter the coverage data to only the FUT's source code."""
@@ -109,11 +110,11 @@ class R2ECodeCoverage(object):
 
     # helper functions
 
-    def filter_lines_dict(self, data, filter_func) -> dict:
+    def filter_lines_dict(self, data, filter_func) -> Dict:
         """Apply a filter function to a dictionary of items."""
         return dict(filter(filter_func, data.items()))
 
-    def filter_lines_list(self, data, filter_func) -> list:
+    def filter_lines_list(self, data, filter_func) -> List:
         """Apply a filter function to a list of items."""
         return list(filter(filter_func, data))
 

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "r2e_test_server"
-version = "0.1.3"
+version = "0.1.4"
 description = "Test Server For R2E"
 authors = ["Naman Jain <naman_jain@berkeley.com>", "Manish Shetty <manishs@berkeley.edu>"]
 readme = "README.md"
@@ -8,11 +8,12 @@ license = "MIT"
 repository = "https://github.com/r2e-project/r2e-test-server"
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = "^3.7"
 rpyc = "^6.0.0"
-coverage = "^7.5.0"
+coverage = "^7"
 pyright = "^1.1.360"
 typer = "^0.12.3"
+astor = "^0.8.1"
 
 [tool.pyright]
 reportMissingTypeStubs = false
