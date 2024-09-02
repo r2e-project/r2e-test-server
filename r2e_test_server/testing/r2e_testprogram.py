@@ -44,7 +44,7 @@ class R2ETestProgram(object):
         ## file_path should be relative to repo_path
         self.repo_id = repo_id
         if repo_id is None:
-            self.repo_path = repo_path
+            self.repo_path = os.path.abspath(repo_path)
         else:
             self.repo_path = f"/repos/{repo_id}"
         self.funclass_names = funclass_names
@@ -227,29 +227,64 @@ class R2ETestProgram(object):
         """
 
         try:
-            all_repo_to_file_paths: List[str] = [self.repo_path]
-            curr_path = os.path.dirname(self.file_path)
-            while curr_path != self.repo_path:
-                all_repo_to_file_paths.append(curr_path)
-                curr_path = os.path.dirname(curr_path)
-
-            for repo_to_file_path in all_repo_to_file_paths:
-                if repo_to_file_path not in sys.path:
-                    sys.path.insert(0, repo_to_file_path)
-
-            fut_module = self.import_module_dynamic("fut_module", self.file_path)
-            fut_module_deps = ModuleExplorer.get_dependencies(self.file_path)
-
-            for repo_to_file_path in all_repo_to_file_paths:
-                sys.path.remove(repo_to_file_path)
+            return self.import_fut_module_with_paths([self.repo_path])
         except ModuleNotFoundError as e:
-            print(f"[ERROR] {str(e)}: Library not installed?")
-            raise
+            print(f"[WARNING] Module not found: {str(e)}. Trying with extended paths.")
+            try:
+                extended_paths = self.get_paths_to_submodules()
+                return self.import_fut_module_with_paths(extended_paths)
+            except ModuleNotFoundError as e:
+                print(f"[ERROR] Module still not found: {str(e)}")
+                raise
         except Exception as e:
             print("[ERROR] Bug in the imported FUT module?")
             raise
 
         return fut_module, fut_module_deps
+
+    def import_fut_module_with_paths(
+        self, paths: List[str]
+    ) -> Tuple[ModuleType, Dict[str, Any]]:
+        """Attempt to dynamically import the fut_module with the given paths in sys.path.
+
+        Args:
+            paths (List[str]): paths to add to sys.path.
+
+        Returns:
+            Tuple[ModuleType, Dict[str, Any]]: module and its dependencies.
+
+        Note: if module is not found, the paths are removed from sys.path.
+        the exception raised should be handled by the caller.
+        """
+
+        for path in paths:
+            if path not in sys.path:
+                sys.path.insert(0, path)
+
+        try:
+            fut_module = self.import_module_dynamic("fut_module", self.file_path)
+            fut_module_deps = ModuleExplorer.get_dependencies(self.file_path)
+        finally:
+            for path in paths:
+                sys.path.remove(path)
+
+        return fut_module, fut_module_deps
+
+    def get_paths_to_submodules(self) -> List[str]:
+        """Build extended paths to the submodules that fut_module can import.
+
+        Returns:
+            List[str]: extended paths.
+
+        Note: used in case of a non-standard/non-flat directory structure.
+        """
+        submodule_paths: List[str] = [self.repo_path]
+        curr_path = os.path.dirname(self.file_path)
+        while curr_path != self.repo_path:
+            submodule_paths.append(curr_path)
+            curr_path = os.path.dirname(curr_path)
+
+        return submodule_paths
 
     def get_funclass_object(self, name: str) -> Union[FunctionType, type]:
         """Get the function or class object from the module by name."""
@@ -257,10 +292,14 @@ class R2ETestProgram(object):
 
     def get_funclass_ast(
         self, funclass_name: str
-    ) -> Union[ast.FunctionDef, ast.ClassDef]:
+    ) -> Union[ast.FunctionDef, ast.ClassDef, ast.AsyncFunctionDef]:
         """Get the function or class AST node from the original file by name."""
         for node in self.orig_file_ast.body:
-            if isinstance(node, ast.ClassDef) or isinstance(node, ast.FunctionDef):
+            if (
+                isinstance(node, ast.ClassDef)
+                or isinstance(node, ast.FunctionDef)
+                or isinstance(node, ast.AsyncFunctionDef)
+            ):
                 if node.name == funclass_name:
                     return node
         raise ValueError(f"Function or class {funclass_name} not found in the file.")

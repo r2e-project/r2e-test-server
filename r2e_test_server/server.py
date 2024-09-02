@@ -67,9 +67,9 @@ class R2EService(rpyc.Service):
 
     @rpyc.exposed
     def init(self):
+        stdout_buffer = StringIO()
+        stderr_buffer = StringIO()
         try:
-            stdout_buffer = StringIO()
-            stderr_buffer = StringIO()
             with CaptureOutput(stdout=stdout_buffer, stderr=stderr_buffer):
                 self.r2e_test_program = R2ETestProgram(
                     self.repo_id,
@@ -87,7 +87,11 @@ class R2EService(rpyc.Service):
 
         except Exception as e:
             traceback_message = traceback.format_exc()
-            return {"error": f"Error: {traceback_message}\n\nSmall Error: {repr(e)}"}
+            output = stdout_buffer.getvalue().strip()
+            return {
+                "error": f"Error: {traceback_message}\n\nSmall Error: {repr(e)}",
+                "output": output,
+            }
 
     @rpyc.exposed
     def submit(self):
