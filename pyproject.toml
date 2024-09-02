@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "r2e_test_server"
-version = "0.1.4"
+version = "0.1.5"
 description = "Test Server For R2E"
 authors = ["Naman Jain <naman_jain@berkeley.com>", "Manish Shetty <manishs@berkeley.edu>"]
 readme = "README.md"
