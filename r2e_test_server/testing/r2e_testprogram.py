@@ -244,14 +244,14 @@ class R2ETestProgram(object):
 
     def import_fut_module_with_paths(
         self, paths: list[str]
-    ) -> tuple[ModuleType, dict[str, Any]]:
+    ) -> Tuple[ModuleType, dict[str, Any]]:
         """Attempt to dynamically import the fut_module with the given paths in sys.path.
 
         Args:
             paths (list[str]): paths to add to sys.path.
 
         Returns:
-            tuple[ModuleType, dict[str, Any]]: module and its dependencies.
+            Tuple[ModuleType, dict[str, Any]]: module and its dependencies.
 
         Note: if module is not found, the paths are removed from sys.path.
         the exception raised should be handled by the caller.
