@@ -136,11 +136,12 @@ class R2ETestProgram(object):
         nspace = self.buildNamespace()
 
         # run tests
-        run_tests_logs, codecovs = self.runTests(nspace=nspace)
+        test_outputs, run_tests_logs, codecovs = self.runTests(nspace=nspace)
         captured_arg_logs = instrumenter.get_logs()
         coverage_logs = [codecov.report_coverage() for codecov in codecovs]
 
         result = {
+            "test_outputs": test_outputs,
             "run_tests_logs": run_tests_logs,
             "coverage_logs": coverage_logs,
             "captured_arg_logs": captured_arg_logs,
@@ -199,9 +200,11 @@ class R2ETestProgram(object):
         runner = R2ETestRunner()
 
         combined_stats = {}
+        errors = {}
         for test_idx, test_suite in test_suites.items():
-            _, stats = runner.run(test_suite)
+            results, stats = runner.run(test_suite)
             combined_stats[test_idx] = stats
+            errors [test_idx] = results.get_error_list()
 
         cov.stop()
         cov.save()
@@ -211,7 +214,7 @@ class R2ETestProgram(object):
             for funclass_name in self.funclass_names
         ]
 
-        return combined_stats, codecovs
+        return errors, combined_stats, codecovs
 
     # helpers
 
