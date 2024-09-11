@@ -1,13 +1,8 @@
-import os
-import ast
-import sys
-import json
-import coverage
-import importlib
-import importlib.util
+import os, ast, sys, json, coverage, importlib, importlib.util
 from copy import deepcopy
 from typing import Any, Union, List, Dict, Optional, Tuple
 from types import ModuleType, FunctionType
+from pathlib import Path
 
 
 from r2e_test_server.testing.loader import R2ETestLoader
@@ -24,33 +19,42 @@ if sys.version_info < (3, 9):
     ast.unparse = lambda node: astor.to_source(node)
 
 
-class R2ETestProgram(object):
-    """A program that runs tests in the R2E framework.
+class R2ETestEngine(object):
+    """Execution engine capable of running multiple tests for one FUT in R2E framework."""
 
-    Args:
-        fid (str): identifier for function under test.
-        codegen (bool): Whether the function under test is generated code.
-    """
+    repo_path: Path
+    '''Path to the repo'''
+    
+    funclass_names: List[str]
+
+    generated_tests: Dict[str, str]
+
+    codegen_mode: bool
+    '''True means FUT is modified version, False means FUT=ref_FUT'''
+
+    orig_file_content: str
+    '''original content of the file '''
+
+    orig_file_ast: ast.AST
+    '''parsed ast of the original file'''
+
+    repo_dir: Path
+    result_dir: Path
 
     def __init__(
         self,
-        repo_id: Optional[str],
-        repo_path: str,
+        repo_path: Path,
         funclass_names: List[str],
         file_path: str,
-        generated_tests: Dict[str, str],
-        codegen_mode: bool = False,
+        result_dir: Path,
     ):
         ## file_path should be relative to repo_path
-        self.repo_id = repo_id
-        if repo_id is None:
-            self.repo_path = os.path.abspath(repo_path)
-        else:
-            self.repo_path = f"/repos/{repo_id}"
+        self.repo_path = Path(repo_path)
+        if not self.repo_path.exists() or not self.repo_path.is_dir():
+            raise ValueError("The directory should exist!" + " Not just a path." if self.repo_path.exists() else "")
         self.funclass_names = funclass_names
-        self.file_path = os.path.join(self.repo_path, file_path)
-        self.generated_tests = generated_tests
-        self.codegen_mode = codegen_mode
+        self.file_path = str((self.repo_path / file_path).absolute())
+        self.result_dir = result_dir
 
         with open(self.file_path, "r") as file:
             self.orig_file_content = file.read()
@@ -67,6 +71,9 @@ class R2ETestProgram(object):
         # removes the funclasses from fut_module if codegen_mode
         self.setup_codegen_mode()
 
+        # TODO: register the current version as original
+        raise NotImplementedError
+
     def setupEnv(self):
         """Setup the environment for testing.
 
@@ -79,8 +86,6 @@ class R2ETestProgram(object):
 
         self.fut_module = fut_module
         self.fut_module_deps = fut_module_deps
-
-        return
 
     def setupRefs(self):
         """Creates a reference/oracle for testing.
@@ -107,13 +112,11 @@ class R2ETestProgram(object):
 
             self.compile_and_exec(new_source)
 
-        return
-
     def setup_codegen_mode(self):
         if self.codegen_mode:
             for funclass_name in self.funclass_names:
                 if "." in funclass_name:
-                    class_name, method_name = funclass_name.split(".")
+                    class_name, _ = funclass_name.split(".")
                     class_obj = self.get_funclass_object(class_name)
                     if class_obj:
                         delattr(self.fut_module, class_name)
@@ -227,7 +230,7 @@ class R2ETestProgram(object):
         """
 
         try:
-            return self.import_fut_module_with_paths([self.repo_path])
+            return self.import_fut_module_with_paths([str(self.repo_path)])
         except ModuleNotFoundError as e:
             print(f"[WARNING] Module not found: {str(e)}. Trying with extended paths.")
             try:
@@ -278,7 +281,7 @@ class R2ETestProgram(object):
 
         Note: used in case of a non-standard/non-flat directory structure.
         """
-        submodule_paths: List[str] = [self.repo_path]
+        submodule_paths: List[str] = [str(self.repo_path)]
         curr_path = os.path.dirname(self.file_path)
         while curr_path != self.repo_path:
             submodule_paths.append(curr_path)
@@ -328,10 +331,7 @@ class R2ETestProgram(object):
         sys.modules[module_name] = module
         return module
 
-    def compile_and_exec(self, code: str, nspace=None) -> Any:
+    def compile_and_exec(self, code: str, namespace=None) -> Any:
         """Compile and execute code in a namespace."""
-        compiled_code = compile(code, "<string>", "exec")
-        if nspace is None:
-            exec(compiled_code, self.fut_module.__dict__)
-        else:
-            exec(compiled_code, nspace)
+        exec(compile(code, '<string>', "exec"), 
+             self.fut_module.__dict__ if namespace is None else namespace)

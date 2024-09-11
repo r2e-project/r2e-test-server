@@ -1,136 +1,141 @@
-import sys
-import json
-import traceback
+import sys, json, traceback
+from pathlib import Path
 from threading import Thread, Event
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, cast
 from io import StringIO
 
 import rpyc
 from rpyc.utils.server import ThreadPoolServer
 
-from r2e_test_server.testing.r2e_testprogram import R2ETestProgram
+from r2e_test_server.testing.test_engines import R2ETestEngine
 
 
 class CaptureOutput:
-    def __init__(self, stdout=None, stderr=None):
-        self._stdout = stdout or sys.stdout
-        self._stderr = stderr or sys.stderr
 
     def __enter__(self):
         self.old_stdout, self.old_stderr = sys.stdout, sys.stderr
         self.old_stdout.flush()
         self.old_stderr.flush()
-        sys.stdout, sys.stderr = self._stdout, self._stderr
+        stdout, stderr = StringIO(), StringIO()
+        sys.stdout, sys.stderr = stdout, stderr
+        return stdout, stderr
 
-    def __exit__(self, exc_type, exc_value, traceback):
-        self._stdout.flush()
-        self._stderr.flush()
+    def __exit__(self, _, __, ___):
+        sys.stdout.flush()
+        sys.stderr.flush()
         sys.stdout = self.old_stdout
         sys.stderr = self.old_stderr
 
 
 @rpyc.service
 class R2EService(rpyc.Service):
-    def __init__(self):
+    codegen_mode: bool
+    result_dir: Path
+    repo_path: Path
+    verbose: bool = False
+
+    engine: Optional[R2ETestEngine] = None
+    # TODO: Consider update this for a multi-file version or for a diff-reference version
+    fut_versions: Dict[str, str] = {}
+    test_versions: Dict[str, str] = {}
+    registered: bool = False # WARNING: remove later, only for 1-fut version
+    
+    def __init__(self, repo_id: str, repo_dir: Path, result_dir: Path, verbose: bool=False):
         self.codegen_mode: bool = False
+        self.result_dir = result_dir
+        self.repo_path = repo_dir / repo_id
+        self.verbose = verbose
 
-    def on_connect(self, conn):
-        pass
+    @rpyc.exposed
+    def register_fut(self, 
+                     fut_id: str, # INFO: name of the funclass or name for the op
+                     module_path: str): # WARNING: should be relative path
+        if self.registered:
+            raise ValueError("current version only supports single fut registration")
 
-    def on_disconnect(self, conn):
-        pass
+        reg_result = {}
+        # TODO: do this async in the future
+        # TODO: allow for multiple fut in the future
+        # INFO: start up a new engine for this fut and setup the fut_versions `original`
+        with CaptureOutput() as (stdout, stderr):
+            try:
+                self.engine = R2ETestEngine(
+                        repo_path=self.repo_path,
+                        funclass_names=[fut_id],
+                        file_path=module_path,
+                        result_dir=self.result_dir,
+                    )
+
+                reg_result = {"output": stdout.getvalue().strip(), 
+                              "error": stderr.getvalue().strip()}
+                self.registered = True
+            except Exception:
+                reg_result = {
+                    "error": f"Error: {traceback.format_exc()}\n\nSTDERR: {stderr.getvalue().strip()}",
+                    "output": stdout.getvalue().strip()
+                }
+
+        return reg_result
+
+    @rpyc.exposed
+    def submit_patch(self):
+        # TODO: use this function to submit different versions of the code
+        raise NotImplementedError()
+
+    @rpyc.exposed
+    def register_test(self,
+                      test_id: Optional[str],
+                      test_content: str,
+                      imm_eval: bool = False) -> Optional[Dict[str, str]]:
+        def _get_test_id(self) -> str:
+            return f"test_{len(self.test_versions)}"
+        test_id = test_id or _get_test_id(self)
+        self.test_versions[test_id] = test_content
+        # TODO: should run the test on ref to get a initial eval result
+        if imm_eval:
+            self.eval_test(test_id)
+
+    @rpyc.exposed
+    def eval_test(self, test_id: str):
+        assert self.engine is not None, "should register FUT before test"
+        with CaptureOutput() as (stdout, stderr):
+            try:
+                logs = self.engine.submit()
+
+                return {"output": stdout.getvalue().strip(), 
+                        "error": stderr.getvalue().strip(), 
+                        "logs": logs}
+
+            except Exception:
+                return {"error": f"Error: {traceback.format_exc()}\n\nSTDERR: {stderr.getvalue().strip()}",
+                        "output": stdout.getvalue().strip()}
+
+    @rpyc.exposed
+    def execute(self, command: str):
+        """execute arbitrary code"""
+        assert self.engine is not None, "should register FUT before test"
+        with CaptureOutput() as (stdout, stderr):
+            try:
+                self.engine.compile_and_exec(command.strip())
+                return {"output": stdout.getvalue().strip(), 
+                        "error": stderr.getvalue().strip()} 
+
+            except Exception:
+                return {"error": f"Error: {traceback.format_exc()}\n\nSTDERR: {stderr.getvalue().strip()}",
+                        "output": stdout.getvalue().strip()}
 
     @rpyc.exposed
     def stop_server(self):
         server_stop_event.set()
 
-    @rpyc.exposed
-    def setup_repo(self, data: str):
-        data_dict = json.loads(data)
-        self.repo_id: Optional[str] = data_dict["repo_id"]
-        self.repo_path: str = data_dict["repo_path"]
-
-    @rpyc.exposed
-    def setup_function(self, data: str):
-        data_dict = json.loads(data)
-        self.funclass_names: List[str] = data_dict["funclass_names"]
-        self.file_path = data_dict["file_path"]
-
-    @rpyc.exposed
-    def setup_test(self, data: str):
-        data_dict = json.loads(data)
-        self.generated_tests: Dict[str, str] = data_dict["generated_tests"]
-
-    @rpyc.exposed
-    def setup_codegen_mode(self):
-        self.codegen_mode = True
-
-    @rpyc.exposed
-    def init(self):
-        stdout_buffer = StringIO()
-        stderr_buffer = StringIO()
-        try:
-            with CaptureOutput(stdout=stdout_buffer, stderr=stderr_buffer):
-                self.r2e_test_program = R2ETestProgram(
-                    self.repo_id,
-                    self.repo_path,
-                    self.funclass_names,
-                    self.file_path,
-                    self.generated_tests,
-                    self.codegen_mode,
-                )
-
-            output = stdout_buffer.getvalue().strip()
-            error = stderr_buffer.getvalue().strip()
-
-            return {"output": output, "error": error}
-
-        except Exception as e:
-            traceback_message = traceback.format_exc()
-            output = stdout_buffer.getvalue().strip()
-            return {
-                "error": f"Error: {traceback_message}\n\nSmall Error: {repr(e)}",
-                "output": output,
-            }
-
-    @rpyc.exposed
-    def submit(self):
-        stdout_buffer = StringIO()
-        stderr_buffer = StringIO()
-        try:
-            with CaptureOutput(stdout=stdout_buffer, stderr=stderr_buffer):
-                logs = self.r2e_test_program.submit()
-                output = stdout_buffer.getvalue().strip()
-                error = stderr_buffer.getvalue().strip()
-
-                return {"output": output, "error": error, "logs": logs}
-
-        except Exception as e:
-            traceback_message = traceback.format_exc()
-            return {"error": f"Error: {traceback_message}\n\nSmall Error: {repr(e)}"}
-
-    @rpyc.exposed
-    def execute(self, command: str):
-        stdout_buffer = StringIO()
-        stderr_buffer = StringIO()
-        try:
-            with CaptureOutput(stdout=stdout_buffer, stderr=stderr_buffer):
-                self.r2e_test_program.compile_and_exec(command.strip())
-                output = stdout_buffer.getvalue().strip()
-                error = stderr_buffer.getvalue().strip()
-
-                return {"output": output, "error": error}
-
-        except Exception as e:
-            traceback_message = traceback.format_exc()
-            return {"error": f"Error: {traceback_message}\n\nSmall Error: {repr(e)}"}
-
-
 server_stop_event = Event()
 
 
-def start_server(port: int):
-    server = ThreadPoolServer(R2EService(), port=port)
+def start_server(port: int, repo_id: str, repo_dir: str, result_dir: str, verbose: bool = False):
+    server = ThreadPoolServer(R2EService(repo_id = repo_id,
+                                         repo_dir=Path(repo_dir).absolute(), 
+                                         result_dir=Path(result_dir).absolute(),
+                                         verbose=verbose), port=port)
 
     # Run the server and wait for a stop event
     server_thread = Thread(target=server.start)
@@ -144,4 +149,4 @@ def start_server(port: int):
 
 
 if __name__ == "__main__":
-    start_server(3006)
+    start_server(3006, 'google___jax', '/repos', '/results')
