@@ -11,6 +11,7 @@ from r2e_test_server.ast.transformer import NameReplacer
 from r2e_test_server.testing.codecov import R2ECodeCoverage
 from r2e_test_server.modules.explorer import ModuleExplorer
 from r2e_test_server.instrument import Instrumenter, CaptureArgsInstrumenter
+from r2e_test_server.testing.util import ensure
 
 
 if sys.version_info < (3, 9):
@@ -172,6 +173,11 @@ class R2ETestEngine(object):
         ret: Dict[str, Dict[str, Any]] = {}
         for test_id, result in self.run_tests(tests, nspace).items():
             errors, stats, cov, arg_log = result
+
+            cov_path = ensure(self.result_dir / self.loaded_fut_version / test_id / 'cov_detail.json')
+            cov.dump_to(cov_path)
+
+            # WARNING: the coverage returned is only the summary, the full cov should be stored in result dir
             ret[test_id] = {
                     'general_logs': stats,
                     'cov_logs': cov.report_coverage(),
@@ -226,23 +232,23 @@ class R2ETestEngine(object):
         """
         instrumenter = self.instrumenter
         assert instrumenter is not None
-        test_suite, nspace = R2ETestLoader.load_tests(
+        test_suites, nspace = R2ETestLoader.load_tests(
             tests, self.funclass_names, nspace
         )
 
         runner = R2ETestRunner()
 
-        def _run_with_cov(test_case):
+        def _run_with_cov(test_suite):
             instrumenter.clear()
             cov = coverage.Coverage(include=[self.file_path], branch=True)
             cov.start()
-            errors, stats = runner.run(test_case)
+            errors, stats = runner.run(test_suite)
             cov.stop()
             cov.save()
             return errors, stats, cov, instrumenter.get_logs()
 
-        return {test_id: (errors.get_error_list(), stats, R2ECodeCoverage(cov, self.fut_module, self.file_path, self.funclass_names), arg_log) 
-                for test_id, (errors, stats, cov, arg_log) in map(lambda x: (x[0], _run_with_cov(x[1])), test_suite.items())}
+        return {test_id: (errors.get_error_list(), stats, R2ECodeCoverage(cov, self.fut_module, self.file_path, self.funclass_names[0]), arg_log) 
+                for test_id, (errors, stats, cov, arg_log) in map(lambda x: (x[0], _run_with_cov(x[1])), test_suites.items())}
 
     # helpers
 

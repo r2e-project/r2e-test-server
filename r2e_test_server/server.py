@@ -58,7 +58,6 @@ class R2EService(rpyc.Service):
             raise ValueError("current version only supports single fut registration")
 
         reg_result = {}
-        print('registering.., verbose', self.verbose)
         # TODO: do this async in the future
         # TODO: allow for multiple fut in the future
         # INFO: start up a new engine for this fut and setup the fut_versions `original`
@@ -85,7 +84,6 @@ class R2EService(rpyc.Service):
                     "output": stdout.getvalue().strip()
                 }
 
-        print('register_fut', self.engine.fut_module.__dict__.keys())
         return reg_result
 
     @rpyc.exposed
@@ -105,7 +103,6 @@ class R2EService(rpyc.Service):
         # TODO: should run the test on ref to get a initial eval result
         if imm_eval:
             self.eval_test(test_id)
-        print('register_test', self.engine.fut_module.__dict__.keys())
 
     @rpyc.exposed
     def eval_test(self, test_id: str):
@@ -113,6 +110,7 @@ class R2EService(rpyc.Service):
         test_content = self.test_versions[test_id]
         with CaptureOutput() as (stdout, stderr):
             try:
+                # WARNING: the coverage returned is only the summary, the full cov should be stored in result dir
                 logs = self.engine.eval_tests({test_id: test_content})[test_id]
 
                 return {"output": stdout.getvalue().strip(), 
@@ -162,7 +160,8 @@ def start_server(port: int, repo_id: str, repo_dir: str, result_dir: str, verbos
     # Once received, close the server and join the thread
     server.close()
     server_thread.join()
-    print("Server stopped")
+    if verbose:
+        print("Server stopped")
 
 
 if __name__ == "__main__":

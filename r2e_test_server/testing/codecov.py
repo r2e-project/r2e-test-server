@@ -10,12 +10,12 @@ class R2ECodeCoverage(object):
         cov: Coverage,
         fut_module: ModuleType,
         fut_module_path: str,
-        funclass_names: List[str],
+        funclass_name: str,
     ):
         self.cov = cov
         self.fut_module = fut_module
         self.fut_module_path = fut_module_path
-        self.funclass_names = funclass_names
+        self.funclass_name = funclass_name
 
     def report_coverage(self):
         if not self.source_exists():
@@ -30,9 +30,10 @@ class R2ECodeCoverage(object):
 
         return metrics
 
-    def dump(self, fp):
+    def dump_to(self, file_name):
         """dump raw cov to a file"""
-        raise NotImplementedError()
+        self.cov.load()
+        self.cov.json_report(outfile=file_name)
 
     # TODO: modify this to give precise cov information
     # should be a good idea to mount the whole FUT folder into docker, but only allow modification of one file
