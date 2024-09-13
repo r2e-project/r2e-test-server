@@ -54,6 +54,12 @@ class R2EServer:
         service: R2EService = retrieve_conn(host, port).root
         R2EServer.Helper.print_result("eval_test", service.eval_test(test_id))
 
+    def execute(self,
+                code: str,
+                host: str = 'localhost',
+                port: int = 3006):
+        service: R2EService = retrieve_conn(host, port).root
+        R2EServer.Helper.print_result("execute", service.execute(code))
 
     def stop(self,
              host: str = 'localhost',
