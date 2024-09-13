@@ -1,6 +1,6 @@
 import os, ast, sys, json, coverage, importlib, importlib.util
 from copy import deepcopy
-from typing import Any, Union, List, Dict, Optional, Tuple
+from typing import Any, Union, List, Dict, Optional, Tuple, cast
 from types import ModuleType, FunctionType
 from pathlib import Path
 
@@ -27,11 +27,6 @@ class R2ETestEngine(object):
     
     funclass_names: List[str]
 
-    generated_tests: Dict[str, str]
-
-    codegen_mode: bool
-    '''True means FUT is modified version, False means FUT=ref_FUT'''
-
     orig_file_content: str
     '''original content of the file '''
 
@@ -40,6 +35,13 @@ class R2ETestEngine(object):
 
     repo_dir: Path
     result_dir: Path
+    file_path: str
+
+    loaded_fut_version: str = 'original'
+    instrumenter: Optional[CaptureArgsInstrumenter] = None
+    nspace: Optional[dict] = None
+
+    verbose: bool
 
     def __init__(
         self,
@@ -47,7 +49,9 @@ class R2ETestEngine(object):
         funclass_names: List[str],
         file_path: str,
         result_dir: Path,
+        verbose: bool = False
     ):
+        self.verbose = verbose
         ## file_path should be relative to repo_path
         self.repo_path = Path(repo_path)
         if not self.repo_path.exists() or not self.repo_path.is_dir():
@@ -60,21 +64,18 @@ class R2ETestEngine(object):
             self.orig_file_content = file.read()
             self.orig_file_ast = ast.parse(self.orig_file_content)
 
+        if self.verbose:
+            print('setting up test engine environment')
+
         # setup the env for testing
         # creates: fut_module and fut_module_deps
-        self.setupEnv()
+        self.setup_env()
 
         # setup reference function
         # creates: ref_function(s) in fut_module
-        self.setupRefs()
+        self.setup_ref()
 
-        # removes the funclasses from fut_module if codegen_mode
-        self.setup_codegen_mode()
-
-        # TODO: register the current version as original
-        raise NotImplementedError
-
-    def setupEnv(self):
+    def setup_env(self):
         """Setup the environment for testing.
 
         Dynamically import the module containing the FUT.
@@ -83,11 +84,10 @@ class R2ETestEngine(object):
 
         fut_module, fut_module_deps = self.get_fut_module()
         sys.modules["fut_module"] = fut_module
-
         self.fut_module = fut_module
         self.fut_module_deps = fut_module_deps
 
-    def setupRefs(self):
+    def setup_ref(self):
         """Creates a reference/oracle for testing.
 
         reference is a deep copy of the code under test.
@@ -109,49 +109,78 @@ class R2ETestEngine(object):
 
             new_ast = NameReplacer(new_ast, funclass_name, ref_name).transform()
             new_source = ast.unparse(new_ast)
-
+            
+            #if self.verbose:
+                #print(ast.unparse(orig_ast))
             self.compile_and_exec(new_source)
+            #if self.verbose:
+                #print('created', ref_name)
+        #print(self.fut_module.__dict__.keys())
 
-    def setup_codegen_mode(self):
-        if self.codegen_mode:
-            for funclass_name in self.funclass_names:
-                if "." in funclass_name:
-                    class_name, _ = funclass_name.split(".")
-                    class_obj = self.get_funclass_object(class_name)
-                    if class_obj:
-                        delattr(self.fut_module, class_name)
-                else:
-                    funclass_object = self.get_funclass_object(funclass_name)
-                    if funclass_object and not isinstance(funclass_object, type):
-                        delattr(self.fut_module, funclass_name)
+    def env_cleanup(self):
+        """remove the original FUT imported through module to cleanup for later eval"""
+        for funclass_name in self.funclass_names:
+            if "." in funclass_name:
+                class_name, _ = funclass_name.split(".")
+                class_obj = self.get_funclass_object(class_name)
+                if class_obj:
+                    delattr(self.fut_module, class_name)
+            else:
+                funclass_object = self.get_funclass_object(funclass_name)
+                if funclass_object and not isinstance(funclass_object, type):
+                    delattr(self.fut_module, funclass_name)
 
-    def submit(self) -> str:
+    def eval_tests(self, tests: Dict[str, str]):
+        """evaluate on a dictionary from test id to tests"""
+        return self(tests)
+
+    def __call__(self, tests: Dict[str, str], 
+               fut_version: str = "original", 
+               fut: Optional[str] = None,
+               fut_path: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
         """Submit the function/method under test to the R2E test framework.
 
         Returns:
             str: JSON string containing the test results.
         """
-        # instrument code and build namespace
-        instrumenter = CaptureArgsInstrumenter()
-        self.instrumentCode(instrumenter)
+        if fut is None and fut_path is None:
+            pass # TODO: run default
+        elif fut_path is not None:
+            pass # TODO: use fut_path
+        else:
+            pass # TODO: create tmp file and give to fut_path, consider hashing this and cleanup only after testing
+        if fut_version != self.loaded_fut_version:
+
+            # TODO: import the file in fut_path to fut_module, refer to set_env
+            # also consider hashing to avoid reloading multiple times
+
+            # instrument code and build namespace
+            # TODO: again, consider hashing to avoid reloading multiple times
+            raise NotImplementedError()
+        
+        if fut_version != self.loaded_fut_version or self.instrumenter is None:
+            self.instrumenter = cast(CaptureArgsInstrumenter,
+                                                         self.inst_code(CaptureArgsInstrumenter()))
 
         # build namespace
-        nspace = self.buildNamespace()
+        if fut_version != self.loaded_fut_version or self.nspace is None:
+            self.nspace = self.build_nspace()
+
+        nspace = self.nspace
 
         # run tests
-        run_tests_logs, codecovs = self.runTests(nspace=nspace)
-        captured_arg_logs = instrumenter.get_logs()
-        coverage_logs = [codecov.report_coverage() for codecov in codecovs]
+        ret: Dict[str, Dict[str, Any]] = {}
+        for test_id, result in self.run_tests(tests, nspace).items():
+            errors, stats, cov, arg_log = result
+            ret[test_id] = {
+                    'general_logs': stats,
+                    'cov_logs': cov.report_coverage(),
+                    'error_logs': errors,
+                    'captured_arg_logs': arg_log
+                }
+        return ret
 
-        result = {
-            "run_tests_logs": run_tests_logs,
-            "coverage_logs": coverage_logs,
-            "captured_arg_logs": captured_arg_logs,
-        }
-
-        return json.dumps(result, indent=4)
-
-    def instrumentCode(self, instrumenter: Instrumenter):
+    def inst_code(self, instrumenter: Instrumenter) -> Instrumenter:
         """Instrument the code under test.
 
         Args:
@@ -173,7 +202,9 @@ class R2ETestEngine(object):
                     funclass_object = instrumenter.instrument(funclass_object)
                     setattr(self.fut_module, funclass_name, funclass_object)
 
-    def buildNamespace(self) -> Dict[str, Any]:
+        return instrumenter
+
+    def build_nspace(self) -> Dict[str, Any]:
         """Build namespace for the test runner.
 
         Notes:
@@ -185,7 +216,7 @@ class R2ETestEngine(object):
         nspace.update(self.fut_module.__dict__)
         return nspace
 
-    def runTests(self, nspace: Dict[str, Any]):
+    def run_tests(self, tests: Dict[str, str], nspace: Dict[str, Any]):
         """Run tests for the function under test.
 
         Args:
@@ -193,28 +224,25 @@ class R2ETestEngine(object):
             nspace (dict): namespace to run tests in.
 
         """
-        test_suites, nspace = R2ETestLoader.load_tests(
-            self.generated_tests, self.funclass_names, nspace
+        instrumenter = self.instrumenter
+        assert instrumenter is not None
+        test_suite, nspace = R2ETestLoader.load_tests(
+            tests, self.funclass_names, nspace
         )
 
-        cov = coverage.Coverage(include=[self.file_path], branch=True)
-        cov.start()
         runner = R2ETestRunner()
 
-        combined_stats = {}
-        for test_idx, test_suite in test_suites.items():
-            _, stats = runner.run(test_suite)
-            combined_stats[test_idx] = stats
+        def _run_with_cov(test_case):
+            instrumenter.clear()
+            cov = coverage.Coverage(include=[self.file_path], branch=True)
+            cov.start()
+            errors, stats = runner.run(test_case)
+            cov.stop()
+            cov.save()
+            return errors, stats, cov, instrumenter.get_logs()
 
-        cov.stop()
-        cov.save()
-
-        codecovs = [
-            R2ECodeCoverage(cov, self.fut_module, self.file_path, funclass_name)
-            for funclass_name in self.funclass_names
-        ]
-
-        return combined_stats, codecovs
+        return {test_id: (errors.get_error_list(), stats, R2ECodeCoverage(cov, self.fut_module, self.file_path, self.funclass_names), arg_log) 
+                for test_id, (errors, stats, cov, arg_log) in map(lambda x: (x[0], _run_with_cov(x[1])), test_suite.items())}
 
     # helpers
 
@@ -242,8 +270,6 @@ class R2ETestEngine(object):
         except Exception as e:
             print("[ERROR] Bug in the imported FUT module?")
             raise
-
-        return fut_module, fut_module_deps
 
     def import_fut_module_with_paths(
         self, paths: List[str]
@@ -333,5 +359,4 @@ class R2ETestEngine(object):
 
     def compile_and_exec(self, code: str, namespace=None) -> Any:
         """Compile and execute code in a namespace."""
-        exec(compile(code, '<string>', "exec"), 
-             self.fut_module.__dict__ if namespace is None else namespace)
+        exec(compile(code, '<string>', "exec"), namespace or self.fut_module.__dict__)

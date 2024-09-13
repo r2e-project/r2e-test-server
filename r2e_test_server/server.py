@@ -29,7 +29,6 @@ class CaptureOutput:
 
 @rpyc.service
 class R2EService(rpyc.Service):
-    codegen_mode: bool
     result_dir: Path
     repo_path: Path
     verbose: bool = False
@@ -41,40 +40,52 @@ class R2EService(rpyc.Service):
     registered: bool = False # WARNING: remove later, only for 1-fut version
     
     def __init__(self, repo_id: str, repo_dir: Path, result_dir: Path, verbose: bool=False):
-        self.codegen_mode: bool = False
         self.result_dir = result_dir
         self.repo_path = repo_dir / repo_id
         self.verbose = verbose
+        self.test_versions = {}
+        self.fut_versions = {}
+        
+    @rpyc.exposed
+    def get_tests(self):
+        return self.test_versions
 
     @rpyc.exposed
     def register_fut(self, 
-                     fut_id: str, # INFO: name of the funclass or name for the op
+                     fut_id: str, # INFO: name of the funclass or name for the optimization batch
                      module_path: str): # WARNING: should be relative path
         if self.registered:
             raise ValueError("current version only supports single fut registration")
 
         reg_result = {}
+        print('registering.., verbose', self.verbose)
         # TODO: do this async in the future
         # TODO: allow for multiple fut in the future
         # INFO: start up a new engine for this fut and setup the fut_versions `original`
         with CaptureOutput() as (stdout, stderr):
             try:
+                if self.verbose:
+                    print('creating test engine...')
                 self.engine = R2ETestEngine(
                         repo_path=self.repo_path,
                         funclass_names=[fut_id],
                         file_path=module_path,
                         result_dir=self.result_dir,
+                        verbose=self.verbose
                     )
 
                 reg_result = {"output": stdout.getvalue().strip(), 
                               "error": stderr.getvalue().strip()}
                 self.registered = True
+                if self.verbose:
+                    print('registration successful')
             except Exception:
                 reg_result = {
                     "error": f"Error: {traceback.format_exc()}\n\nSTDERR: {stderr.getvalue().strip()}",
                     "output": stdout.getvalue().strip()
                 }
 
+        print('register_fut', self.engine.fut_module.__dict__.keys())
         return reg_result
 
     @rpyc.exposed
@@ -84,8 +95,8 @@ class R2EService(rpyc.Service):
 
     @rpyc.exposed
     def register_test(self,
-                      test_id: Optional[str],
                       test_content: str,
+                      test_id: Optional[str] = None,
                       imm_eval: bool = False) -> Optional[Dict[str, str]]:
         def _get_test_id(self) -> str:
             return f"test_{len(self.test_versions)}"
@@ -94,13 +105,15 @@ class R2EService(rpyc.Service):
         # TODO: should run the test on ref to get a initial eval result
         if imm_eval:
             self.eval_test(test_id)
+        print('register_test', self.engine.fut_module.__dict__.keys())
 
     @rpyc.exposed
     def eval_test(self, test_id: str):
         assert self.engine is not None, "should register FUT before test"
+        test_content = self.test_versions[test_id]
         with CaptureOutput() as (stdout, stderr):
             try:
-                logs = self.engine.submit()
+                logs = self.engine.eval_tests({test_id: test_content})[test_id]
 
                 return {"output": stdout.getvalue().strip(), 
                         "error": stderr.getvalue().strip(), 
@@ -136,10 +149,14 @@ def start_server(port: int, repo_id: str, repo_dir: str, result_dir: str, verbos
                                          repo_dir=Path(repo_dir).absolute(), 
                                          result_dir=Path(result_dir).absolute(),
                                          verbose=verbose), port=port)
+    if verbose:
+        print(f"Server on {port} created!")
 
     # Run the server and wait for a stop event
     server_thread = Thread(target=server.start)
     server_thread.start()
+    if verbose:
+        print(f"Server on {port} started!")
     server_stop_event.wait()
 
     # Once received, close the server and join the thread

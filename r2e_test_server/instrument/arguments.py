@@ -45,6 +45,13 @@ class CaptureArgsInstrumenter(Instrumenter):
             }
         )
 
+    def clear(self):
+        super().clear()
+        self.captured_args_list.clear()
+        self.args_with_names.clear()
+        self.serialized_args_with_names.clear()
+
+
     def get_logs(self) -> List[Dict[str, Any]]:
         logs = []
         for captured_args in self.captured_args_list:
