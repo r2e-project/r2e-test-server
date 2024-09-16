@@ -202,7 +202,7 @@ class R2ETestProgram(object):
         combined_stats = {}
         combined_errors = {}
         for test_idx, test_suite in test_suites.items():
-            err, stats = runner.run(test_suite)
+            _, err, stats = runner.run(test_suite)
             combined_stats[test_idx] = stats
             combined_errors[test_idx] = err
 

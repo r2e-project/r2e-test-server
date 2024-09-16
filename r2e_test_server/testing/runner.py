@@ -11,4 +11,5 @@ class R2ETestRunner(unittest.TextTestRunner):
     def run(self, test):  # type: ignore
         result: R2ETestResult = super().run(test)  # type: ignore
         stats = result.get_stats()
-        return result, stats
+        err = result.get_error_list()
+        return result, err, stats
