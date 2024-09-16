@@ -64,6 +64,18 @@ class R2ETestResult(unittest.TextTestResult):
             "unexpected_successes": len(self.unexpected_success_tests),
         }
 
+    def get_error_list(self):
+        def _init_error_entry(etype: str, test, err):
+            return {
+                "type": etype,
+                "test": self.getDescription(test),
+                "message": str(err),
+            }
+
+        return [_init_error_entry("ERROR", *error) for error in self.errors] + [
+            _init_error_entry("FAIL", *failure) for failure in self.failures
+        ]
+
 
 def merge_test_suite_stats(stats_per_suite):
     # NOTE: don't use this unless you are sure
