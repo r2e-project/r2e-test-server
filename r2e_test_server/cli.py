@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import List, Optional
 import rpyc, fire
 from r2e_test_server.server import R2EService, start_server
 
@@ -32,6 +32,36 @@ class R2EServer:
         service: R2EService = retrieve_conn(host, port).root
         R2EServer.Helper.print_result("tests", service.get_tests())
 
+    def patchs(self, 
+             host: str = 'localhost',
+             port: int = 3006):
+        service: R2EService = retrieve_conn(host, port).root
+        R2EServer.Helper.print_result("patchs", service.get_futs())
+
+    def submit_patch(self, 
+             patch_id: str,
+             patch_path: str,
+             imm_eval: bool = False,
+             host: str = 'localhost',
+             port: int = 3006):
+        service: R2EService = retrieve_conn(host, port).root
+        result = service.submit_patch(patch_id, patch_path, imm_eval)
+
+        if imm_eval:
+            print(result)
+
+
+    def eval_patch(self,
+                   test_id: str,
+                   patch_version: str,
+                   host: str = 'localhost',
+                   port: int = 3006):
+        #assert eval_all or patch_version != None, "At least give one of the patchs to test"
+        service: R2EService = retrieve_conn(host, port).root
+        R2EServer.Helper.print_result("eval_patch", 
+                                      R2EServer.Helper.ensure_success(
+                                          service.eval_patch(test_id, patch_version)))
+
     def register_test(self,
                       test_file: str,
                       test_id: Optional[str] = None,
@@ -41,9 +71,10 @@ class R2EServer:
         service: R2EService = retrieve_conn(host, port).root
         with open(test_file) as f:
             test_content = f.read()
-        result = service.register_test(test_content,
+        result = R2EServer.Helper.ensure_success(service.register_test(
+                              test_content,
                               test_id=test_id,
-                              imm_eval=imm_eval)
+                              imm_eval=imm_eval))
         if imm_eval:
             print(result)
 
@@ -52,14 +83,44 @@ class R2EServer:
                  host: str = 'localhost',
                  port: int = 3006):
         service: R2EService = retrieve_conn(host, port).root
-        R2EServer.Helper.print_result("eval_test", service.eval_test(test_id))
+        R2EServer.Helper.print_result("eval_test", 
+                                      R2EServer.Helper.ensure_success(service.eval_test(test_id)))
+
+    def register_perf(self,
+                      perf_file: str,
+                      perf_type: str,
+                      perf_id: Optional[str] = None,
+                      imm_eval: bool = False,
+                      host: str = 'localhost',
+                      port: int = 3006):
+        assert perf_type in ["latency", "memory"]
+        service: R2EService = retrieve_conn(host, port).root
+        with open(perf_file) as f:
+            perf_content = f.read()
+        result = R2EServer.Helper.ensure_success(service.register_perf(
+                              perf_content,
+                              perf_id=perf_id,
+                              _perf_type=perf_type,
+                              imm_eval=imm_eval))
+        if imm_eval:
+            print(result)
+
+    def eval_perf(self,
+                 perf_id: str,
+                 host: str = 'localhost',
+                 port: int = 3006):
+        service: R2EService = retrieve_conn(host, port).root
+        R2EServer.Helper.print_result("eval_test", 
+                                      R2EServer.Helper.ensure_success(service.eval_perf(perf_id)))
+
 
     def execute(self,
                 code: str,
                 host: str = 'localhost',
                 port: int = 3006):
         service: R2EService = retrieve_conn(host, port).root
-        R2EServer.Helper.print_result("execute", service.execute(code))
+        R2EServer.Helper.print_result("execute", 
+                                      R2EServer.Helper.ensure_success(service.execute(code)))
 
     def stop(self,
              host: str = 'localhost',
@@ -77,6 +138,11 @@ class R2EServer:
             for result_id in result:
                 print(result_id, "------------>")
                 print(result[result_id])
+        
+        @staticmethod
+        def ensure_success(res):
+            assert res[0][0], res[0][1]
+            return res[1]
 
 def CLI():
     fire.Fire(R2EServer)

@@ -1,6 +1,4 @@
-import json
 import unittest
-import coverage
 
 from r2e_test_server.testing.result import R2ETestResult
 

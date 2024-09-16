@@ -1,4 +1,5 @@
-import os, ast, sys, json, coverage, importlib, importlib.util
+from enum import Enum, auto
+import os, ast, sys, coverage, importlib, importlib.util
 from copy import deepcopy
 from typing import Any, Union, List, Dict, Optional, Tuple, cast
 from types import ModuleType, FunctionType
@@ -11,7 +12,7 @@ from r2e_test_server.ast.transformer import NameReplacer
 from r2e_test_server.testing.codecov import R2ECodeCoverage
 from r2e_test_server.modules.explorer import ModuleExplorer
 from r2e_test_server.instrument import Instrumenter, CaptureArgsInstrumenter
-from r2e_test_server.testing.util import ensure
+from r2e_test_server.testing.util import create_temp_file, ensure
 
 
 if sys.version_info < (3, 9):
@@ -19,6 +20,9 @@ if sys.version_info < (3, 9):
 
     ast.unparse = lambda node: astor.to_source(node)
 
+class PerfTypes(Enum):
+    LATENCY=auto(),
+    MEMORY=auto()
 
 class R2ETestEngine(object):
     """Execution engine capable of running multiple tests for one FUT in R2E framework."""
@@ -37,6 +41,8 @@ class R2ETestEngine(object):
     repo_dir: Path
     result_dir: Path
     file_path: str
+    '''path to the FUT module, also controlls how the all other deps are 
+    imported (for different version of FUT)'''
 
     loaded_fut_version: str = 'original'
     instrumenter: Optional[CaptureArgsInstrumenter] = None
@@ -76,14 +82,14 @@ class R2ETestEngine(object):
         # creates: ref_function(s) in fut_module
         self.setup_ref()
 
-    def setup_env(self):
+    def setup_env(self, fut_path: Optional[str] = None):
         """Setup the environment for testing.
 
         Dynamically import the module containing the FUT.
         Save the module and its dependencies.
         """
 
-        fut_module, fut_module_deps = self.get_fut_module()
+        fut_module, fut_module_deps = self.get_fut_module(fut_path or self.file_path)
         sys.modules["fut_module"] = fut_module
         self.fut_module = fut_module
         self.fut_module_deps = fut_module_deps
@@ -94,12 +100,14 @@ class R2ETestEngine(object):
         reference is a deep copy of the code under test.
         exec()s to load reference function into the environment.
         """
+        # TODO: should be cached
         for funclass_name in self.funclass_names:
 
             # for a method, use the enclosing class as the reference object
             if "." in funclass_name:
                 class_name, _ = funclass_name.split(".")
                 funclass_name = class_name
+                
 
             ref_name = f"reference_{funclass_name}"
             orig_ast = self.get_funclass_ast(funclass_name)
@@ -111,12 +119,7 @@ class R2ETestEngine(object):
             new_ast = NameReplacer(new_ast, funclass_name, ref_name).transform()
             new_source = ast.unparse(new_ast)
             
-            #if self.verbose:
-                #print(ast.unparse(orig_ast))
             self.compile_and_exec(new_source)
-            #if self.verbose:
-                #print('created', ref_name)
-        #print(self.fut_module.__dict__.keys())
 
     def env_cleanup(self):
         """remove the original FUT imported through module to cleanup for later eval"""
@@ -131,34 +134,42 @@ class R2ETestEngine(object):
                 if funclass_object and not isinstance(funclass_object, type):
                     delattr(self.fut_module, funclass_name)
 
-    def eval_tests(self, tests: Dict[str, str]):
+    def eval_tests(self, tests: Dict[str, str]) -> Dict[str, Dict[str, Any]]:
         """evaluate on a dictionary from test id to tests"""
-        return self(tests)
+        return self(tests)[0]
 
-    def __call__(self, tests: Dict[str, str], 
+    def eval_patch(self, tests: Dict[str, str],
+                   patch_version: str, patch_path: str) -> Dict[str, Dict[str, Any]]:
+        return self(tests, fut_version=patch_version, fut_path=patch_path)[1]
+
+    def __call__(self, tests: Dict[str, str] = {}, 
+               perfs: Dict[str, Tuple[PerfTypes, str]] = {},
                fut_version: str = "original", 
                fut: Optional[str] = None,
-               fut_path: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
+               fut_path: Optional[str] = None) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
         """Submit the function/method under test to the R2E test framework.
 
         Returns:
             str: JSON string containing the test results.
         """
         if fut is None and fut_path is None:
-            pass # TODO: run default
-        elif fut_path is not None:
-            pass # TODO: use fut_path
-        else:
-            pass # TODO: create tmp file and give to fut_path, consider hashing this and cleanup only after testing
-        if fut_version != self.loaded_fut_version:
+            fut_path = self.file_path
 
+        # TODO: add a check for fut_version and fut just to check the user does not mess up
+
+        if fut_path is None and fut is not None:
+            # create tmp file and give to fut_path,
+            fut_path = create_temp_file(fut)
+            # TODO: consider hashing this and cleanup only after testing
+
+        if fut_version != self.loaded_fut_version:
             # TODO: import the file in fut_path to fut_module, refer to set_env
             # also consider hashing to avoid reloading multiple times
+            self.setup_env(fut_path)
+            self.setup_ref()
 
-            # instrument code and build namespace
-            # TODO: again, consider hashing to avoid reloading multiple times
-            raise NotImplementedError()
-        
+        # instrument code and build namespace
+        # TODO: again, consider hashing to avoid reloading multiple times
         if fut_version != self.loaded_fut_version or self.instrumenter is None:
             self.instrumenter = cast(CaptureArgsInstrumenter,
                                                          self.inst_code(CaptureArgsInstrumenter()))
@@ -170,7 +181,7 @@ class R2ETestEngine(object):
         nspace = self.nspace
 
         # run tests
-        ret: Dict[str, Dict[str, Any]] = {}
+        results: Dict[str, Dict[str, Any]] = {}
         for test_id, result in self.run_tests(tests, nspace).items():
             errors, stats, cov, arg_log = result
 
@@ -178,13 +189,29 @@ class R2ETestEngine(object):
             cov.dump_to(cov_path)
 
             # WARNING: the coverage returned is only the summary, the full cov should be stored in result dir
-            ret[test_id] = {
+            results[test_id] = {
                     'general_logs': stats,
                     'cov_logs': cov.report_coverage(),
                     'error_logs': errors,
                     'captured_arg_logs': arg_log
                 }
-        return ret
+
+        perf_results = {}
+        for perf_id, result in self.run_perfs(tests, nspace).items():
+            errors, stats, cov, arg_log = result
+
+            cov_path = ensure(self.result_dir / self.loaded_fut_version / perf_id / 'cov_detail.json')
+            cov.dump_to(cov_path)
+
+            # WARNING: the coverage returned is only the summary, the full cov should be stored in result dir
+            perf_results[perf_id] = {
+                    'general_logs': stats,
+                    'cov_logs': cov.report_coverage(),
+                    'error_logs': errors,
+                    'captured_arg_logs': arg_log
+                }
+
+        return results, perf_results
 
     def inst_code(self, instrumenter: Instrumenter) -> Instrumenter:
         """Instrument the code under test.
@@ -223,13 +250,7 @@ class R2ETestEngine(object):
         return nspace
 
     def run_tests(self, tests: Dict[str, str], nspace: Dict[str, Any]):
-        """Run tests for the function under test.
-
-        Args:
-            FUT (FunctionUnderTest): function under test.
-            nspace (dict): namespace to run tests in.
-
-        """
+        """Run tests for the function under test."""
         instrumenter = self.instrumenter
         assert instrumenter is not None
         test_suites, nspace = R2ETestLoader.load_tests(
@@ -250,9 +271,33 @@ class R2ETestEngine(object):
         return {test_id: (errors.get_error_list(), stats, R2ECodeCoverage(cov, self.fut_module, self.file_path, self.funclass_names[0]), arg_log) 
                 for test_id, (errors, stats, cov, arg_log) in map(lambda x: (x[0], _run_with_cov(x[1])), test_suites.items())}
 
+    def run_perfs(self, tests: Dict[str, str], nspace: Dict[str, Any]):
+        """Run perf tests for the function under test."""
+        raise NotImplementedError
+        instrumenter = self.instrumenter
+        assert instrumenter is not None
+        test_suites, nspace = R2ETestLoader.load_tests(
+            tests, self.funclass_names, nspace
+        )
+
+        runner = R2ETestRunner()
+
+        def _run_with_cov(test_suite):
+            instrumenter.clear()
+            cov = coverage.Coverage(include=[self.file_path], branch=True)
+            cov.start()
+            errors, stats = runner.run(test_suite)
+            cov.stop()
+            cov.save()
+            return errors, stats, cov, instrumenter.get_logs()
+
+        return {test_id: (errors.get_error_list(), stats, R2ECodeCoverage(cov, self.fut_module, self.file_path, self.funclass_names[0]), arg_log) 
+                for test_id, (errors, stats, cov, arg_log) in map(lambda x: (x[0], _run_with_cov(x[1])), test_suites.items())}
+
+
     # helpers
 
-    def get_fut_module(self) -> Tuple[ModuleType, Dict[str, Any]]:
+    def get_fut_module(self, fut_path: str) -> Tuple[ModuleType, Dict[str, Any]]:
         """Dynamically import and retrieve the module containing the function under test.
         Also retrieve the dependencies of the module.
 
@@ -264,12 +309,13 @@ class R2ETestEngine(object):
         """
 
         try:
-            return self.import_fut_module_with_paths([str(self.repo_path)])
+            return self.import_fut_module_with_paths(fut_path, [str(self.repo_path)])
         except ModuleNotFoundError as e:
             print(f"[WARNING] Module not found: {str(e)}. Trying with extended paths.")
             try:
+                # WARNING: prolly remember to modify this stuff if want to apply multi-file patch
                 extended_paths = self.get_paths_to_submodules()
-                return self.import_fut_module_with_paths(extended_paths)
+                return self.import_fut_module_with_paths(fut_path, extended_paths)
             except ModuleNotFoundError as e:
                 print(f"[ERROR] Module still not found: {str(e)}")
                 raise
@@ -278,7 +324,7 @@ class R2ETestEngine(object):
             raise
 
     def import_fut_module_with_paths(
-        self, paths: List[str]
+            self, fut_path: str, paths: List[str]
     ) -> Tuple[ModuleType, Dict[str, Any]]:
         """Attempt to dynamically import the fut_module with the given paths in sys.path.
 
@@ -297,8 +343,9 @@ class R2ETestEngine(object):
                 sys.path.insert(0, path)
 
         try:
-            fut_module = self.import_module_dynamic("fut_module", self.file_path)
-            fut_module_deps = ModuleExplorer.get_dependencies(self.file_path)
+            fut_module = self.import_module_dynamic("fut_module", fut_path)
+            # WARNING: prolly also modify this if multi-patch
+            fut_module_deps = ModuleExplorer.get_dependencies(fut_path)
         finally:
             for path in paths:
                 sys.path.remove(path)
@@ -366,3 +413,4 @@ class R2ETestEngine(object):
     def compile_and_exec(self, code: str, namespace=None) -> Any:
         """Compile and execute code in a namespace."""
         exec(compile(code, '<string>', "exec"), namespace or self.fut_module.__dict__)
+
