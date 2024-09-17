@@ -38,6 +38,7 @@ class R2EServer:
         service: R2EService = retrieve_conn(host, port).root
         R2EServer.Helper.print_result("patchs", service.get_futs())
 
+    # NOTE: patch should be a whole new python file
     def submit_patch(self, 
              patch_id: str,
              patch_path: str,
@@ -45,12 +46,13 @@ class R2EServer:
              host: str = 'localhost',
              port: int = 3006):
         service: R2EService = retrieve_conn(host, port).root
-        result = service.submit_patch(patch_id, patch_path, imm_eval)
+        result = service.submit_patch(patch_id=patch_id, patch_path=patch_path, imm_eval=imm_eval)
 
         if imm_eval:
-            print(result)
+            R2EServer.Helper.print_result("eval_patch", 
+                  R2EServer.Helper.ensure_success(result))
 
-
+    # NOTE: patch should be a whole new python file
     def eval_patch(self,
                    test_id: str,
                    patch_version: str,
@@ -60,7 +62,8 @@ class R2EServer:
         service: R2EService = retrieve_conn(host, port).root
         R2EServer.Helper.print_result("eval_patch", 
                                       R2EServer.Helper.ensure_success(
-                                          service.eval_patch(test_id, patch_version)))
+                                          service.eval_patch(test_id=test_id, 
+                                                             patch_id=patch_version)))
 
     def register_test(self,
                       test_file: str,

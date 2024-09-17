@@ -119,9 +119,10 @@ class R2EService(rpyc.Service):
                 patch_content = f.read()
             self.fut_versions[patch_id] = patch_content
             self.fut_paths[patch_id] = patch_path
-            # TODO: should run the test on ref to get a initial eval result
+            # run the test on ref to get a initial eval result
             if imm_eval:
-                raise NotImplementedError
+                return self.eval_patch(patch_id=patch_id,
+                                       test_id=list(self.test_versions.keys())[0])
             return (True, ''), None
         except:
             return (False, traceback.format_exc()), None
@@ -147,14 +148,14 @@ class R2EService(rpyc.Service):
             return (False, traceback.format_exc()), None
 
     @rpyc.exposed
-    def eval_patch(self, fut_id: str, test_id: str) -> Tuple[Tuple[bool, str], Optional[Dict[str, Any]]]:
+    def eval_patch(self, patch_id: str, test_id: str) -> Tuple[Tuple[bool, str], Optional[Dict[str, Any]]]:
         try:
             assert self.engine is not None, "should register FUT before test"
             with CaptureOutput() as (stdout, stderr):
                 try:
                     # WARNING: the coverage returned is only the summary, the full cov should be stored in result dir
                     logs = self.engine.eval_patch({test_id: self.test_versions[test_id]}, 
-                                                  fut_id, self.fut_paths[fut_id])[test_id]
+                                                  patch_id, patch_path=self.fut_paths[patch_id])[test_id]
 
                     return (True, ''), {"output": stdout.getvalue().strip(), 
                             "error": stderr.getvalue().strip(), 

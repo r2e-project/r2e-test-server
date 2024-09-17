@@ -12,7 +12,7 @@ from r2e_test_server.ast.transformer import NameReplacer
 from r2e_test_server.testing.codecov import R2ECodeCoverage
 from r2e_test_server.modules.explorer import ModuleExplorer
 from r2e_test_server.instrument import Instrumenter, CaptureArgsInstrumenter
-from r2e_test_server.testing.util import create_temp_file, ensure
+from r2e_test_server.testing.util import ensure
 
 
 if sys.version_info < (3, 9):
@@ -82,18 +82,19 @@ class R2ETestEngine(object):
         # creates: ref_function(s) in fut_module
         self.setup_ref()
 
-    def setup_env(self, fut_path: Optional[str] = None):
+    def setup_env(self):
         """Setup the environment for testing.
 
         Dynamically import the module containing the FUT.
         Save the module and its dependencies.
         """
 
-        fut_module, fut_module_deps = self.get_fut_module(fut_path or self.file_path)
+        fut_module, fut_module_deps = self.get_fut_module(self.file_path)
         sys.modules["fut_module"] = fut_module
         self.fut_module = fut_module
         self.fut_module_deps = fut_module_deps
 
+    cached_refs: Optional[List[str]] = None
     def setup_ref(self):
         """Creates a reference/oracle for testing.
 
@@ -101,24 +102,26 @@ class R2ETestEngine(object):
         exec()s to load reference function into the environment.
         """
         # TODO: should be cached
-        for funclass_name in self.funclass_names:
+        if self.cached_refs is None:
+            self.cached_refs = []
+            for funclass_name in self.funclass_names:
 
-            # for a method, use the enclosing class as the reference object
-            if "." in funclass_name:
-                class_name, _ = funclass_name.split(".")
-                funclass_name = class_name
-                
+                # for a method, use the enclosing class as the reference object
+                if "." in funclass_name:
+                    class_name, _ = funclass_name.split(".")
+                    funclass_name = class_name
 
-            ref_name = f"reference_{funclass_name}"
-            orig_ast = self.get_funclass_ast(funclass_name)
+                ref_name = f"reference_{funclass_name}"
+                orig_ast = self.get_funclass_ast(funclass_name)
 
-            temp = deepcopy(orig_ast)
-            temp.name = ref_name
-            new_ast = ast.Module(body=[temp], type_ignores=[])
+                temp = deepcopy(orig_ast)
+                temp.name = ref_name
+                new_ast = ast.Module(body=[temp], type_ignores=[])
 
-            new_ast = NameReplacer(new_ast, funclass_name, ref_name).transform()
-            new_source = ast.unparse(new_ast)
+                new_ast = NameReplacer(new_ast, funclass_name, ref_name).transform()
+                self.cached_refs.append(ast.unparse(new_ast))
             
+        for new_source in self.cached_refs:
             self.compile_and_exec(new_source)
 
     def env_cleanup(self):
@@ -139,50 +142,48 @@ class R2ETestEngine(object):
         return self(tests)[0]
 
     def eval_patch(self, tests: Dict[str, str],
-                   patch_version: str, patch_path: str) -> Dict[str, Dict[str, Any]]:
-        return self(tests, fut_version=patch_version, fut_path=patch_path)[1]
+                   patch_version: str = "original", 
+                   patch: str = "", 
+                   patch_path: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
+        return self(tests, patch_version=patch_version, 
+                    patch=patch,
+                    patch_path=patch_path)[0]
 
     def __call__(self, tests: Dict[str, str] = {}, 
                perfs: Dict[str, Tuple[PerfTypes, str]] = {},
-               fut_version: str = "original", 
-               fut: Optional[str] = None,
-               fut_path: Optional[str] = None) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
-        """Submit the function/method under test to the R2E test framework.
+               patch_version: str = "original", 
+               patch: str = "",
+               patch_path: Optional[str] = None) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
+        """evaluate patch on the tests specified"""
 
-        Returns:
-            str: JSON string containing the test results.
-        """
-        if fut is None and fut_path is None:
-            fut_path = self.file_path
+        if patch_path is not None:
+            with open(patch_path) as f:
+                patch = f.read()
 
-        # TODO: add a check for fut_version and fut just to check the user does not mess up
+        # import the file in fut_path to fut_module, refer to setup_env
+        # also consider hashing to avoid reloading multiple times
+        if patch_version != self.loaded_fut_version:
+            # setup the file, 'original' use original file content
+            with open(self.file_path, 'w') as f:
+                f.write(self.orig_file_content if patch_version == "original" else patch)
 
-        if fut_path is None and fut is not None:
-            # create tmp file and give to fut_path,
-            fut_path = create_temp_file(fut)
-            # TODO: consider hashing this and cleanup only after testing
-
-        if fut_version != self.loaded_fut_version:
-            # TODO: import the file in fut_path to fut_module, refer to set_env
-            # also consider hashing to avoid reloading multiple times
-            self.setup_env(fut_path)
+            # WARNING: do not use cleanup here since there could be very nasty problems (like missing dep, new func with the same name, etc.)
+            self.setup_env()
             self.setup_ref()
 
         # instrument code and build namespace
-        # TODO: again, consider hashing to avoid reloading multiple times
-        if fut_version != self.loaded_fut_version or self.instrumenter is None:
-            self.instrumenter = cast(CaptureArgsInstrumenter,
-                                                         self.inst_code(CaptureArgsInstrumenter()))
+        # again, hashing to avoid reloading multiple times
+        if patch_version != self.loaded_fut_version or self.instrumenter is None:
+            self.instrumenter = cast(CaptureArgsInstrumenter, self.inst_code(CaptureArgsInstrumenter()))
 
         # build namespace
-        if fut_version != self.loaded_fut_version or self.nspace is None:
+        if patch_version != self.loaded_fut_version or self.nspace is None:
             self.nspace = self.build_nspace()
-
-        nspace = self.nspace
+        self.loaded_fut_version = patch_version
 
         # run tests
         results: Dict[str, Dict[str, Any]] = {}
-        for test_id, result in self.run_tests(tests, nspace).items():
+        for test_id, result in self.run_tests(tests, self.nspace).items():
             errors, stats, cov, arg_log = result
 
             cov_path = ensure(self.result_dir / self.loaded_fut_version / test_id / 'cov_detail.json')
@@ -197,7 +198,7 @@ class R2ETestEngine(object):
                 }
 
         perf_results = {}
-        for perf_id, result in self.run_perfs(tests, nspace).items():
+        for perf_id, result in self.run_perfs(perfs, self.nspace).items():
             errors, stats, cov, arg_log = result
 
             cov_path = ensure(self.result_dir / self.loaded_fut_version / perf_id / 'cov_detail.json')
@@ -271,8 +272,10 @@ class R2ETestEngine(object):
         return {test_id: (errors.get_error_list(), stats, R2ECodeCoverage(cov, self.fut_module, self.file_path, self.funclass_names[0]), arg_log) 
                 for test_id, (errors, stats, cov, arg_log) in map(lambda x: (x[0], _run_with_cov(x[1])), test_suites.items())}
 
-    def run_perfs(self, tests: Dict[str, str], nspace: Dict[str, Any]):
+    def run_perfs(self, tests: Dict[str, Tuple[PerfTypes, str]], nspace: Dict[str, Any]):
         """Run perf tests for the function under test."""
+        if len(tests) == 0:
+            return {}
         raise NotImplementedError
         instrumenter = self.instrumenter
         assert instrumenter is not None
