@@ -125,11 +125,21 @@ class R2EServer:
         R2EServer.Helper.print_result("execute", 
                                       R2EServer.Helper.ensure_success(service.execute(code)))
 
+    def restore(self,
+                host: str = 'localhost',
+                port: int = 3006):
+        service: R2EService = retrieve_conn(host, port).root
+        service.restore()
+
+
     def stop(self,
              host: str = 'localhost',
              port: int = 3006):
         conn = retrieve_conn(host, port)
-        conn.root.stop_server()
+        server: R2EService = conn.root
+        if not server.is_restored():
+            server.restore()
+        server.stop()
         conn.close()
 
     class Helper:

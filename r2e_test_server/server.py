@@ -41,7 +41,7 @@ class R2EService(rpyc.Service):
     test_versions: Dict[str, str] = {}
     perf_versions: Dict[str, Tuple[PerfTypes, str]] = {}
     registered: bool = False # WARNING: remove later, only for 1-fut version
-    
+
     def __init__(self, repo_id: str, repo_dir: Path, result_dir: Path, verbose: bool=False):
         self.result_dir = result_dir
         self.repo_path = repo_dir / repo_id
@@ -52,6 +52,10 @@ class R2EService(rpyc.Service):
     @rpyc.exposed
     def get_tests(self):
         return self.test_versions
+
+    @rpyc.exposed
+    def is_restored(self):
+        return getattr(self.engine, 'restored', True)
 
     @rpyc.exposed
     def register_fut(self, 
@@ -226,8 +230,21 @@ class R2EService(rpyc.Service):
             return (False, traceback.format_exc()), None
 
     @rpyc.exposed
-    def stop_server(self):
+    def restore(self):
+        assert self.engine is not None, "should register FUT before test"
+        self.engine.restore()
+
+    @rpyc.exposed
+    def stop(self):
         server_stop_event.set()
+
+    def on_connect(self, conn):
+        if self.verbose:
+            print("Client connected")
+
+    def on_disconnect(self, conn):
+        if self.verbose:
+            print("Client disconnected")
 
 server_stop_event = Event()
 

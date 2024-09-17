@@ -50,6 +50,8 @@ class R2ETestEngine(object):
 
     verbose: bool
 
+    restored: bool = True
+
     def __init__(
         self,
         repo_path: Path,
@@ -163,10 +165,14 @@ class R2ETestEngine(object):
         # import the file in fut_path to fut_module, refer to setup_env
         # also consider hashing to avoid reloading multiple times
         if patch_version != self.loaded_fut_version:
+            if patch_version != 'original':
+                self.restored = False
             # setup the file, 'original' use original file content
             with open(self.file_path, 'w') as f:
                 f.write(self.orig_file_content if patch_version == "original" else patch)
 
+            if patch_version == 'original':
+                self.restored = True
             # WARNING: do not use cleanup here since there could be very nasty problems (like missing dep, new func with the same name, etc.)
             self.setup_env()
             self.setup_ref()
@@ -213,6 +219,10 @@ class R2ETestEngine(object):
                 }
 
         return results, perf_results
+
+    def restore(self):
+        with open(self.file_path, 'w') as f:
+            f.write(self.orig_file_content)
 
     def inst_code(self, instrumenter: Instrumenter) -> Instrumenter:
         """Instrument the code under test.
