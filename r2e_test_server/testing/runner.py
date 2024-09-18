@@ -10,3 +10,19 @@ class R2ETestRunner(unittest.TextTestRunner):
         result: R2ETestResult = super().run(test)  # type: ignore
         stats = result.get_stats()
         return result, stats
+
+class LatencyTestRunner(unittest.TextTestRunner):
+    resultclass = R2ETestResult
+
+    def run(self, test):  # type: ignore
+        result: R2ETestResult = super().run(test)  # type: ignore
+        stats = result.get_stats()
+        return result, stats
+
+class MemoryTestRunner(unittest.TextTestRunner):
+    resultclass = R2ETestResult
+
+    def run(self, test):  # type: ignore
+        result: R2ETestResult = super().run(test)  # type: ignore
+        stats = result.get_stats()
+        return result, stats

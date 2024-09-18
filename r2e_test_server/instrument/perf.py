@@ -219,9 +219,6 @@ class TimeItInstrumenter(Instrumenter):
 class MemProfInstrumenter(Instrumenter):
     def __init__(self):
         super().__init__()
-        self.args_with_names = {}
-        self.serialized_args_with_names = {}
-        self.captured_args_list = []
 
     def before_call(self, func, *args, **kwargs):
         bound_arguments = inspect.signature(func).bind(*args, **kwargs)
