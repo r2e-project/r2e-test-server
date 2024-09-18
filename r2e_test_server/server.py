@@ -1,31 +1,13 @@
-import sys, traceback
+import traceback
 from pathlib import Path
 from threading import Thread, Event
-from typing import Any, Dict, List, Optional, Tuple
-from io import StringIO
+from typing import Any, Dict, Optional, Tuple
 
 import rpyc
 from rpyc.utils.server import ThreadPoolServer
 
 from r2e_test_server.testing.test_engines import PerfTypes, R2ETestEngine
-
-
-class CaptureOutput:
-
-    def __enter__(self):
-        self.old_stdout, self.old_stderr = sys.stdout, sys.stderr
-        self.old_stdout.flush()
-        self.old_stderr.flush()
-        stdout, stderr = StringIO(), StringIO()
-        sys.stdout, sys.stderr = stdout, stderr
-        return stdout, stderr
-
-    def __exit__(self, _, __, ___):
-        sys.stdout.flush()
-        sys.stderr.flush()
-        sys.stdout = self.old_stdout
-        sys.stderr = self.old_stderr
-
+from r2e_test_server.testing.util import CaptureOutput
 
 @rpyc.service
 class R2EService(rpyc.Service):

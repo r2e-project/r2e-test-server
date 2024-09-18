@@ -1,4 +1,5 @@
 from enum import Enum, auto
+from io import StringIO
 import os, ast, sys, coverage, importlib, importlib.util
 from copy import deepcopy
 from typing import Any, Union, List, Dict, Optional, Tuple, cast
@@ -13,7 +14,6 @@ from r2e_test_server.testing.codecov import R2ECodeCoverage
 from r2e_test_server.modules.explorer import ModuleExplorer
 from r2e_test_server.instrument import Instrumenter, CaptureArgsInstrumenter
 from r2e_test_server.testing.util import ensure
-
 
 if sys.version_info < (3, 9):
     import astor
