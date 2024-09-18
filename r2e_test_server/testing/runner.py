@@ -9,4 +9,4 @@ class R2ETestRunner(unittest.TextTestRunner):
     def run(self, test):  # type: ignore
         result: R2ETestResult = super().run(test)  # type: ignore
         stats = result.get_stats()
-        return result, stats
+        return result.get_error_list(), stats

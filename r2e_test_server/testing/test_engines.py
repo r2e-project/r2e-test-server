@@ -279,7 +279,7 @@ class R2ETestEngine(object):
             cov.save()
             return errors, stats, cov, instrumenter.get_logs()
 
-        return {test_id: (errors.get_error_list(), stats, R2ECodeCoverage(cov, self.fut_module, self.file_path, self.funclass_names[0]), arg_log) 
+        return {test_id: (errors, stats, R2ECodeCoverage(cov, self.fut_module, self.file_path, self.funclass_names[0]), arg_log) 
                 for test_id, (errors, stats, cov, arg_log) in map(lambda x: (x[0], _run_with_cov(x[1])), test_suites.items())}
 
     def run_perfs(self, tests: Dict[str, Tuple[PerfTypes, str]], nspace: Dict[str, Any]):
