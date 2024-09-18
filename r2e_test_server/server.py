@@ -36,11 +36,10 @@ class R2EService(rpyc.Service):
     engine: Optional[R2ETestEngine] = None
     # TODO: Consider update this for a multi-file version or for a diff-reference version
     fut_versions: Dict[str, str] = {}
-    fut_paths: Dict[str, str] = {}
 
     test_versions: Dict[str, str] = {}
     perf_versions: Dict[str, Tuple[PerfTypes, str]] = {}
-    registered: bool = False # WARNING: remove later, only for 1-fut version
+    registered: bool = False # WARNING: only for 1-fut version
 
     def __init__(self, repo_id: str, repo_dir: Path, result_dir: Path, verbose: bool=False):
         self.result_dir = result_dir
@@ -116,13 +115,18 @@ class R2EService(rpyc.Service):
             return (False, traceback.format_exc()), None
 
     @rpyc.exposed
-    def submit_patch(self, patch_id: str,  patch_path: str, imm_eval: bool = False):
+    def submit_patch(self, patch_id: str,  
+                     patch_content: Optional[str] = None,
+                     patch_path: Optional[str] = None, 
+                     imm_eval: bool = False):
         # TODO: use this function to submit different versions of the code
         try:
-            with open(patch_path) as f:
-                patch_content = f.read()
+            assert not (patch_content is None and patch_path is None)
+            if patch_path is not None:
+                with open(patch_path) as f:
+                    patch_content = f.read()
+            assert patch_content is not None
             self.fut_versions[patch_id] = patch_content
-            self.fut_paths[patch_id] = patch_path
             # run the test on ref to get a initial eval result
             if imm_eval:
                 return self.eval_patch(patch_id=patch_id,
@@ -159,7 +163,7 @@ class R2EService(rpyc.Service):
                 try:
                     # WARNING: the coverage returned is only the summary, the full cov should be stored in result dir
                     logs = self.engine.eval_patch({test_id: self.test_versions[test_id]}, 
-                                                  patch_id, patch_path=self.fut_paths[patch_id])[test_id]
+                                                  patch_id, patch=self.fut_versions[patch_id])[test_id]
 
                     return (True, ''), {"output": stdout.getvalue().strip(), 
                             "error": stderr.getvalue().strip(), 
