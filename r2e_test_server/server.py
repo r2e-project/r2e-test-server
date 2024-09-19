@@ -1,7 +1,7 @@
 import traceback
 from pathlib import Path
 from threading import Thread, Event
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Set, Tuple
 
 import rpyc
 from rpyc.utils.server import ThreadPoolServer
@@ -21,6 +21,7 @@ class R2EService(rpyc.Service):
     fut_paths: Dict[str, str] = {}
 
     test_versions: Dict[str, str] = {}
+    test_types: Dict[str, Set[str]] = {}
     registered: bool = False # WARNING: remove later, only for 1-fut version
 
     def __init__(self, repo_id: str, repo_dir: Path, result_dir: Path, verbose: bool=False):
@@ -73,7 +74,7 @@ class R2EService(rpyc.Service):
                     "output": stdout.getvalue().strip()
                 }
 
-        return reg_result
+        return True, reg_result
 
     @rpyc.exposed
     def get_futs(self):
@@ -83,24 +84,31 @@ class R2EService(rpyc.Service):
     def register_test(self,
                       test_content: str,
                       test_id: Optional[str] = None,
-                      inst_mask: Dict[str, bool] = {},
+                      test_type: Optional[str] = None,
                       imm_eval: bool = False) -> Tuple[Tuple[bool, str], Optional[Dict[str, str]]]:
         try:
+            def _get_inst_mask(_type):
+                if _type == "equiv":
+                    return {"args"}
+                elif _type == "latency":
+                    return {"args", "latency"}
+                raise ValueError(_type)
+
             def _get_test_id(self) -> str:
                 return f"test_{len(self.test_versions)}"
             test_id = test_id or _get_test_id(self)
             self.test_versions[test_id] = test_content
-            # TODO: should run the test on ref to get a initial eval result
+            self.test_types[test_id] = _get_inst_mask(test_type or "equiv")
+            # run the test on ref to get a initial eval result
             if imm_eval:
-                assert len(inst_mask) == len(InstrumenterSlots.types()), (inst_mask, InstrumenterSlots.types())
-                return self.eval_test(test_id, inst_mask=inst_mask)
+                return self.eval_test(test_id)
             return (True, ''), None
         except:
             return (False, traceback.format_exc()), None
 
     @rpyc.exposed
-    def submit_patch(self, patch_id: str,  patch_path: str, imm_eval: bool = False, inst_mask):
-        # TODO: use this function to submit different versions of the code
+    def submit_patch(self, patch_id: str,  patch_path: str, imm_eval: bool = False):
+        """submit different versions of the code"""
         try:
             with open(patch_path) as f:
                 patch_content = f.read()
@@ -108,14 +116,19 @@ class R2EService(rpyc.Service):
             self.fut_paths[patch_id] = patch_path
             # run the test on ref to get a initial eval result
             if imm_eval:
+                # INFO: let this be here for a while
+                raise NotImplementedError
+                test_id = list(self.test_versions.keys())[0]
                 return self.eval_patch(patch_id=patch_id,
-                                       test_id=list(self.test_versions.keys())[0])
+                                       inst_mask=self.test_types[test_id],
+                                       test_id=test_id)
             return (True, ''), None
         except:
             return (False, traceback.format_exc()), None
 
     @rpyc.exposed
-    def eval_test(self, test_id: str, inst_mask: Dict[str, bool]) -> Tuple[Tuple[bool, str], Optional[Dict[str, Any]]]:
+    def eval_test(self, test_id: str, 
+                  inst_mask: Optional[Set[str]] = None) -> Tuple[Tuple[bool, str], Optional[Dict[str, Any]]]:
         try:
             assert self.engine is not None, "should register FUT before test"
             test_content = self.test_versions[test_id]
@@ -123,7 +136,7 @@ class R2EService(rpyc.Service):
                 try:
                     # WARNING: the coverage returned is only the summary, the full cov should be stored in result dir
                     logs = self.engine.eval_tests({test_id: test_content},
-                                                  inst_masks={test_id:inst_mask})[test_id]
+                                                  inst_masks={test_id: inst_mask or self.test_types[test_id]})[test_id]
 
                     return (True, ''), {"output": stdout.getvalue().strip(), 
                             "error": stderr.getvalue().strip(), 
@@ -136,9 +149,11 @@ class R2EService(rpyc.Service):
             return (False, traceback.format_exc()), None
 
     @rpyc.exposed
-    def eval_patch(self, patch_id: str, test_id: str, inst_mask: Dict[str, bool]) -> Tuple[Tuple[bool, str], Optional[Dict[str, Any]]]:
+    def eval_patch(self, patch_id: str, test_id: str, inst_mask: Optional[Set[str]] = None) -> Tuple[Tuple[bool, str], Optional[Dict[str, Any]]]:
         try:
             assert self.engine is not None, "should register FUT before test"
+            if inst_mask is None:
+                inst_mask = self.test_types[test_id]
             with CaptureOutput() as (stdout, stderr):
                 try:
                     # WARNING: the coverage returned is only the summary, the full cov should be stored in result dir

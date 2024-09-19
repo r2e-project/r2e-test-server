@@ -313,10 +313,9 @@ class R2ETestEngine(object):
 
         runner = R2ETestRunner()
 
-        def _run_with_cov(test_suite):
+        def _run_with_cov(test_id, test_suite):
             instrumenters.clear()
-            # TODO: set the inst mask here
-            raise NotImplementedError
+            instrumenters.set(inst_masks[test_id])
             cov = coverage.Coverage(include=[self.file_path], branch=True)
             cov.start()
             errors, stats = runner.run(test_suite)
@@ -326,7 +325,7 @@ class R2ETestEngine(object):
 
         # BUG: this would not work on multi-file scenario
         return {test_id: (errors.get_error_list(), stats, R2ECodeCoverage(cov, self.fut_module, self.file_path, self.funclass_names[0]), arg_log) 
-                for test_id, (errors, stats, cov, arg_log) in map(lambda x: (x[0], _run_with_cov(x[1])), test_suites.items())}
+                for test_id, (errors, stats, cov, arg_log) in map(lambda x: (x[0], _run_with_cov(x[0], x[1])), test_suites.items())}
 
     # helpers
 

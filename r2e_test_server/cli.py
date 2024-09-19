@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Set
 import rpyc, fire
 from r2e_test_server.server import R2EService, start_server
 
@@ -24,7 +24,8 @@ class R2EServer:
                      host: str = 'localhost',
                      port: int = 3006):
         service: R2EService = retrieve_conn(host, port).root
-        print(service.register_fut(fut_id, module_path))
+        R2EServer.Helper.print_result("eval_patch", R2EServer.Helper.ensure_success(
+            service.register_fut(fut_id, module_path)))
 
     def tests(self, 
               host: str = 'localhost',
@@ -68,6 +69,7 @@ class R2EServer:
     def register_test(self,
                       test_file: str,
                       test_id: Optional[str] = None,
+                      test_type: Optional[str] = None,
                       imm_eval: bool = False,
                       host: str = 'localhost',
                       port: int = 3006):
@@ -77,45 +79,21 @@ class R2EServer:
         result = R2EServer.Helper.ensure_success(service.register_test(
                               test_content,
                               test_id=test_id,
+                              test_type=test_type,
                               imm_eval=imm_eval))
         if imm_eval:
-            print(result)
+            R2EServer.Helper.print_result("eval_patch", result)
 
     def eval_test(self,
-                 test_id: str,
-                 host: str = 'localhost',
-                 port: int = 3006):
+                  test_id: str,
+                  inst_mask: Optional[Set[str]] = None,
+                  host: str = 'localhost',
+                  port: int = 3006):
         service: R2EService = retrieve_conn(host, port).root
         R2EServer.Helper.print_result("eval_test", 
-                                      R2EServer.Helper.ensure_success(service.eval_test(test_id)))
-
-    def register_perf(self,
-                      perf_file: str,
-                      perf_type: str,
-                      perf_id: Optional[str] = None,
-                      imm_eval: bool = False,
-                      host: str = 'localhost',
-                      port: int = 3006):
-        assert perf_type in ["latency", "memory"]
-        service: R2EService = retrieve_conn(host, port).root
-        with open(perf_file) as f:
-            perf_content = f.read()
-        result = R2EServer.Helper.ensure_success(service.register_perf(
-                              perf_content,
-                              perf_id=perf_id,
-                              _perf_type=perf_type,
-                              imm_eval=imm_eval))
-        if imm_eval:
-            print(result)
-
-    def eval_perf(self,
-                 perf_id: str,
-                 host: str = 'localhost',
-                 port: int = 3006):
-        service: R2EService = retrieve_conn(host, port).root
-        R2EServer.Helper.print_result("eval_test", 
-                                      R2EServer.Helper.ensure_success(service.eval_perf(perf_id)))
-
+                                      R2EServer.Helper.ensure_success(
+                                          service.eval_test(test_id=test_id,
+                                                            inst_mask=inst_mask)))
 
     def execute(self,
                 code: str,
