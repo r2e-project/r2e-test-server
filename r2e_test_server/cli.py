@@ -131,6 +131,19 @@ class R2EServer:
         service: R2EService = retrieve_conn(host, port).root
         service.restore()
 
+    def load_patch(self,
+                   version: str,
+                   host: str = 'localhost',
+                   port: int = 3006):
+        service: R2EService = retrieve_conn(host, port).root
+        service.load_version(version)
+
+    def cur_patch(self,
+                  host: str = 'localhost',
+                  port: int = 3006):
+        service: R2EService = retrieve_conn(host, port).root
+        print(service.cur_version())
+
 
     def stop(self,
              host: str = 'localhost',

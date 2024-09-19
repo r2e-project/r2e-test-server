@@ -151,19 +151,12 @@ class R2ETestEngine(object):
                     patch=patch,
                     patch_path=patch_path)[0]
 
-    def __call__(self, tests: Dict[str, str] = {}, 
-               perfs: Dict[str, Tuple[PerfTypes, str]] = {},
-               patch_version: str = "original", 
-               patch: str = "",
-               patch_path: Optional[str] = None) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
-        """evaluate patch on the tests specified"""
-
+    def load_env(self, patch_version: str,
+                 patch: str = "",
+                 patch_path: Optional[str] = None):
         if patch_path is not None:
             with open(patch_path) as f:
                 patch = f.read()
-
-        # import the file in fut_path to fut_module, refer to setup_env
-        # also consider hashing to avoid reloading multiple times
         if patch_version != self.loaded_fut_version:
             if patch_version != 'original':
                 self.restored = False
@@ -176,7 +169,6 @@ class R2ETestEngine(object):
             # WARNING: do not use cleanup here since there could be very nasty problems (like missing dep, new func with the same name, etc.)
             self.setup_env()
             self.setup_ref()
-
         # instrument code and build namespace
         # again, hashing to avoid reloading multiple times
         if patch_version != self.loaded_fut_version or self.instrumenter is None:
@@ -187,9 +179,23 @@ class R2ETestEngine(object):
             self.nspace = self.build_nspace()
         self.loaded_fut_version = patch_version
 
+
+    def __call__(self, tests: Dict[str, str] = {}, 
+               perfs: Dict[str, Tuple[PerfTypes, str]] = {},
+               patch_version: str = "original", 
+               patch: str = "",
+               patch_path: Optional[str] = None) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
+        """evaluate patch on the tests specified"""
+
+        self.load_env(patch_version=patch_version,
+                      patch=patch,
+                      patch_path=patch_path)
+
+        nspace = cast(Dict[str, Any], self.nspace)
+
         # run tests
         results: Dict[str, Dict[str, Any]] = {}
-        for test_id, result in self.run_tests(tests, self.nspace).items():
+        for test_id, result in self.run_tests(tests, nspace).items():
             errors, stats, cov, arg_log = result
 
             cov_path = ensure(self.result_dir / self.loaded_fut_version / test_id / 'cov_detail.json')
@@ -204,7 +210,7 @@ class R2ETestEngine(object):
                 }
 
         perf_results = {}
-        for perf_id, result in self.run_perfs(perfs, self.nspace).items():
+        for perf_id, result in self.run_perfs(perfs, nspace).items():
             errors, stats, cov, arg_log = result
 
             cov_path = ensure(self.result_dir / self.loaded_fut_version / perf_id / 'cov_detail.json')

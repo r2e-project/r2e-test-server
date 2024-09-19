@@ -39,6 +39,16 @@ class R2EService(rpyc.Service):
         return getattr(self.engine, 'restored', True)
 
     @rpyc.exposed
+    def load_version(self, version: str):
+        assert self.engine is not None, "should register FUT before test"
+        self.engine.load_env(version)
+
+    @rpyc.exposed
+    def cur_version(self):
+        assert self.engine is not None, "should register FUT before test"
+        return self.engine.loaded_fut_version
+
+    @rpyc.exposed
     def register_fut(self, 
                      fut_id: str, # INFO: name of the funclass or name for the optimization batch
                      module_path: str): # WARNING: should be relative path
