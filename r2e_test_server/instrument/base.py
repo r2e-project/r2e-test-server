@@ -8,7 +8,6 @@ class Instrumenter:
         self.current_frame = None
         self.previous_frame = None
         self.output = None
-        pass
 
     def instrument(self, func):
         """Wrap the given function with the instrumentation logic."""
@@ -25,6 +24,9 @@ class Instrumenter:
             return self.output
 
         return wrapper
+
+    def clear(self):
+        self.output = None
 
     def instrument_method(self, class_obj, method):
         """Wrap the given method with the instrumentation logic."""
