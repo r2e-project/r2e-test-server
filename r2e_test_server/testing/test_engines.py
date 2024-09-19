@@ -1,11 +1,13 @@
 from enum import Enum, auto
+from io import StringIO
 import os, ast, sys, coverage, importlib, importlib.util
 from copy import deepcopy
-from typing import Any, Union, List, Dict, Optional, Tuple, cast
+from typing import Any, Set, Union, List, Dict, Optional, Tuple, cast
 from types import ModuleType, FunctionType
 from pathlib import Path
 
 
+from r2e_test_server.instrument.perf import ProfilerInstrumenter, TimeItInstrumenter
 from r2e_test_server.testing.loader import R2ETestLoader
 from r2e_test_server.testing.runner import R2ETestRunner
 from r2e_test_server.ast.transformer import NameReplacer
@@ -14,15 +16,70 @@ from r2e_test_server.modules.explorer import ModuleExplorer
 from r2e_test_server.instrument import Instrumenter, CaptureArgsInstrumenter
 from r2e_test_server.testing.util import ensure
 
-
 if sys.version_info < (3, 9):
     import astor
 
     ast.unparse = lambda node: astor.to_source(node)
 
-class PerfTypes(Enum):
-    LATENCY=auto(),
-    MEMORY=auto()
+class InstrumenterSlots:
+    argsInstrumenter: CaptureArgsInstrumenter
+    latencyInstrumenter: TimeItInstrumenter
+    profilerInstrumenter: ProfilerInstrumenter
+
+    @staticmethod
+    def types():
+        return ['args', 'latency', 'profiler']
+
+    @staticmethod
+    def check_mask(mask: Set[str]):
+        assert all([key in InstrumenterSlots.types() for key in mask]), mask
+
+    def __init__(self):
+        self.argsInstrumenter = CaptureArgsInstrumenter()
+        self.latencyInstrumenter = TimeItInstrumenter()
+        self.profilerInstrumenter = ProfilerInstrumenter()
+
+    def instrument_method(self, class_obj, method_name):
+        method = getattr(class_obj, method_name)
+
+        # instrument the method and set it back to the class
+        setattr(class_obj, method.__name__, self.instrument(method))
+        return class_obj
+
+    def instrument(self, funclass_obj):
+        for instrumenter in self:
+            funclass_obj = instrumenter.instrument(funclass_obj)
+        return funclass_obj
+
+    def clear(self):
+        for instrumenter in self:
+            instrumenter.clear()
+
+    def instrumenters(self):
+        return {inst_type: getattr(self, f"{inst_type}Instrumenter")
+                for inst_type in InstrumenterSlots.types()}
+
+    # use a list of log dicts rather than a dict of lists
+    def get_logs(self):
+        enabled_instrumenters = {k: v for k,v in self.instrumenters().items() if v.switch}
+        enabled_types = list(enabled_instrumenters.keys())
+        logs = {inst_type: instrumenter.get_logs() 
+                for inst_type, instrumenter in enabled_instrumenters.items()}
+        lens = set([len(val) for val in logs.values()])
+        assert len(lens) == 1, logs # all the logs should have the same length
+        ret = []
+        for zipped_log in zip(*[logs[ty] for ty in enabled_types]):
+            ret.append({k: v for k,v in zip(enabled_types, zipped_log)})
+        return ret
+
+
+    def set(self, mask: Set[str]):
+        InstrumenterSlots.check_mask(mask)
+        for key in InstrumenterSlots.types():
+            getattr(self, key+"Instrumenter").set(key in mask)
+
+    def __iter__(self):
+        return iter([self.argsInstrumenter, self.latencyInstrumenter, self.profilerInstrumenter])
 
 class R2ETestEngine(object):
     """Execution engine capable of running multiple tests for one FUT in R2E framework."""
@@ -45,7 +102,7 @@ class R2ETestEngine(object):
     imported (for different version of FUT)'''
 
     loaded_fut_version: str = 'original'
-    instrumenter: Optional[CaptureArgsInstrumenter] = None
+    instrumenters: Optional[InstrumenterSlots] = None
     nspace: Optional[dict] = None
 
     verbose: bool
@@ -139,23 +196,27 @@ class R2ETestEngine(object):
                 if funclass_object and not isinstance(funclass_object, type):
                     delattr(self.fut_module, funclass_name)
 
-    def eval_tests(self, tests: Dict[str, str]) -> Dict[str, Dict[str, Any]]:
+    def eval_tests(self, tests: Dict[str, str],
+                   inst_masks: Dict[str, Set[str]]) -> Dict[str, Dict[str, Any]]:
         """evaluate on a dictionary from test id to tests"""
-        return self(tests)[0]
+        return self(tests, inst_masks=inst_masks)
 
     def eval_patch(self, tests: Dict[str, str],
+                   inst_masks: Dict[str, Set[str]],
                    patch_version: str = "original", 
                    patch: str = "", 
                    patch_path: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
+
         return self(tests, patch_version=patch_version, 
+                    inst_masks=inst_masks,
                     patch=patch,
-                    patch_path=patch_path)[0]
+                    patch_path=patch_path)
 
     def __call__(self, tests: Dict[str, str] = {}, 
-               perfs: Dict[str, Tuple[PerfTypes, str]] = {},
+               inst_masks: Dict[str, Set[str]] = {},
                patch_version: str = "original", 
                patch: str = "",
-               patch_path: Optional[str] = None) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
+               patch_path: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
         """evaluate patch on the tests specified"""
 
         if patch_path is not None:
@@ -179,8 +240,8 @@ class R2ETestEngine(object):
 
         # instrument code and build namespace
         # again, hashing to avoid reloading multiple times
-        if patch_version != self.loaded_fut_version or self.instrumenter is None:
-            self.instrumenter = cast(CaptureArgsInstrumenter, self.inst_code(CaptureArgsInstrumenter()))
+        if patch_version != self.loaded_fut_version or self.instrumenters is None:
+            self.inst_code()
 
         # build namespace
         if patch_version != self.loaded_fut_version or self.nspace is None:
@@ -189,8 +250,8 @@ class R2ETestEngine(object):
 
         # run tests
         results: Dict[str, Dict[str, Any]] = {}
-        for test_id, result in self.run_tests(tests, self.nspace).items():
-            errors, stats, cov, arg_log = result
+        for test_id, result in self.run_tests(tests, inst_masks, self.nspace).items():
+            errors, stats, cov, log = result
 
             cov_path = ensure(self.result_dir / self.loaded_fut_version / test_id / 'cov_detail.json')
             cov.dump_to(cov_path)
@@ -200,53 +261,35 @@ class R2ETestEngine(object):
                     'general_logs': stats,
                     'cov_logs': cov.report_coverage(),
                     'error_logs': errors,
-                    'captured_arg_logs': arg_log
+                    'inst_logs': log
                 }
 
-        perf_results = {}
-        for perf_id, result in self.run_perfs(perfs, self.nspace).items():
-            errors, stats, cov, arg_log = result
-
-            cov_path = ensure(self.result_dir / self.loaded_fut_version / perf_id / 'cov_detail.json')
-            cov.dump_to(cov_path)
-
-            # WARNING: the coverage returned is only the summary, the full cov should be stored in result dir
-            perf_results[perf_id] = {
-                    'general_logs': stats,
-                    'cov_logs': cov.report_coverage(),
-                    'error_logs': errors,
-                    'captured_arg_logs': arg_log
-                }
-
-        return results, perf_results
+        return results
 
     def restore(self):
         with open(self.file_path, 'w') as f:
             f.write(self.orig_file_content)
 
-    def inst_code(self, instrumenter: Instrumenter) -> Instrumenter:
-        """Instrument the code under test.
-
-        Args:
-            instrumenter (Instrumenter): Instrumenter object.
-        """
+    def inst_code(self) -> None:
+        """Instrument the code under test."""
+        instrumenters = InstrumenterSlots()
         for funclass_name in self.funclass_names:
             if "." in funclass_name:
                 class_name, method_name = funclass_name.split(".")
                 class_obj = self.get_funclass_object(class_name)
 
                 if class_obj:
-                    class_obj = instrumenter.instrument_method(class_obj, method_name)
+                    instrumenters.instrument_method(class_obj, method_name)
                     setattr(self.fut_module, class_name, class_obj)
 
             else:
                 funclass_object = self.get_funclass_object(funclass_name)
 
                 if funclass_object and not isinstance(funclass_object, type):
-                    funclass_object = instrumenter.instrument(funclass_object)
+                    instrumenters.instrument(funclass_object)
                     setattr(self.fut_module, funclass_name, funclass_object)
 
-        return instrumenter
+        self.instrumenters = instrumenters
 
     def build_nspace(self) -> Dict[str, Any]:
         """Build namespace for the test runner.
@@ -260,10 +303,10 @@ class R2ETestEngine(object):
         nspace.update(self.fut_module.__dict__)
         return nspace
 
-    def run_tests(self, tests: Dict[str, str], nspace: Dict[str, Any]):
+    def run_tests(self, tests: Dict[str, str], inst_masks: Dict[str, Set[str]], nspace: Dict[str, Any]):
         """Run tests for the function under test."""
-        instrumenter = self.instrumenter
-        assert instrumenter is not None
+        instrumenters = self.instrumenters
+        assert instrumenters is not None
         test_suites, nspace = R2ETestLoader.load_tests(
             tests, self.funclass_names, nspace
         )
@@ -271,43 +314,19 @@ class R2ETestEngine(object):
         runner = R2ETestRunner()
 
         def _run_with_cov(test_suite):
-            instrumenter.clear()
+            instrumenters.clear()
+            # TODO: set the inst mask here
+            raise NotImplementedError
             cov = coverage.Coverage(include=[self.file_path], branch=True)
             cov.start()
             errors, stats = runner.run(test_suite)
             cov.stop()
             cov.save()
-            return errors, stats, cov, instrumenter.get_logs()
+            return errors, stats, cov, instrumenters.get_logs()
 
         # BUG: this would not work on multi-file scenario
         return {test_id: (errors.get_error_list(), stats, R2ECodeCoverage(cov, self.fut_module, self.file_path, self.funclass_names[0]), arg_log) 
                 for test_id, (errors, stats, cov, arg_log) in map(lambda x: (x[0], _run_with_cov(x[1])), test_suites.items())}
-
-    def run_perfs(self, tests: Dict[str, Tuple[PerfTypes, str]], nspace: Dict[str, Any]):
-        """Run perf tests for the function under test."""
-        if len(tests) == 0:
-            return {}
-        raise NotImplementedError
-        instrumenter = self.instrumenter
-        assert instrumenter is not None
-        test_suites, nspace = R2ETestLoader.load_tests(
-            tests, self.funclass_names, nspace
-        )
-
-        runner = R2ETestRunner()
-
-        def _run_with_cov(test_suite):
-            instrumenter.clear()
-            cov = coverage.Coverage(include=[self.file_path], branch=True)
-            cov.start()
-            errors, stats = runner.run(test_suite)
-            cov.stop()
-            cov.save()
-            return errors, stats, cov, instrumenter.get_logs()
-
-        return {test_id: (errors.get_error_list(), stats, R2ECodeCoverage(cov, self.fut_module, self.file_path, self.funclass_names[0]), arg_log) 
-                for test_id, (errors, stats, cov, arg_log) in map(lambda x: (x[0], _run_with_cov(x[1])), test_suites.items())}
-
 
     # helpers
 

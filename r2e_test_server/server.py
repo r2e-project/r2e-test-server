@@ -1,31 +1,13 @@
-import sys, traceback
+import traceback
 from pathlib import Path
 from threading import Thread, Event
-from typing import Any, Dict, List, Optional, Tuple
-from io import StringIO
+from typing import Any, Dict, Optional, Tuple
 
 import rpyc
 from rpyc.utils.server import ThreadPoolServer
 
-from r2e_test_server.testing.test_engines import PerfTypes, R2ETestEngine
-
-
-class CaptureOutput:
-
-    def __enter__(self):
-        self.old_stdout, self.old_stderr = sys.stdout, sys.stderr
-        self.old_stdout.flush()
-        self.old_stderr.flush()
-        stdout, stderr = StringIO(), StringIO()
-        sys.stdout, sys.stderr = stdout, stderr
-        return stdout, stderr
-
-    def __exit__(self, _, __, ___):
-        sys.stdout.flush()
-        sys.stderr.flush()
-        sys.stdout = self.old_stdout
-        sys.stderr = self.old_stderr
-
+from r2e_test_server.testing.test_engines import InstrumenterSlots, R2ETestEngine
+from r2e_test_server.testing.util import CaptureOutput
 
 @rpyc.service
 class R2EService(rpyc.Service):
@@ -39,7 +21,6 @@ class R2EService(rpyc.Service):
     fut_paths: Dict[str, str] = {}
 
     test_versions: Dict[str, str] = {}
-    perf_versions: Dict[str, Tuple[PerfTypes, str]] = {}
     registered: bool = False # WARNING: remove later, only for 1-fut version
 
     def __init__(self, repo_id: str, repo_dir: Path, result_dir: Path, verbose: bool=False):
@@ -102,6 +83,7 @@ class R2EService(rpyc.Service):
     def register_test(self,
                       test_content: str,
                       test_id: Optional[str] = None,
+                      inst_mask: Dict[str, bool] = {},
                       imm_eval: bool = False) -> Tuple[Tuple[bool, str], Optional[Dict[str, str]]]:
         try:
             def _get_test_id(self) -> str:
@@ -110,13 +92,14 @@ class R2EService(rpyc.Service):
             self.test_versions[test_id] = test_content
             # TODO: should run the test on ref to get a initial eval result
             if imm_eval:
-                return self.eval_test(test_id)
+                assert len(inst_mask) == len(InstrumenterSlots.types()), (inst_mask, InstrumenterSlots.types())
+                return self.eval_test(test_id, inst_mask=inst_mask)
             return (True, ''), None
         except:
             return (False, traceback.format_exc()), None
 
     @rpyc.exposed
-    def submit_patch(self, patch_id: str,  patch_path: str, imm_eval: bool = False):
+    def submit_patch(self, patch_id: str,  patch_path: str, imm_eval: bool = False, inst_mask):
         # TODO: use this function to submit different versions of the code
         try:
             with open(patch_path) as f:
@@ -132,14 +115,15 @@ class R2EService(rpyc.Service):
             return (False, traceback.format_exc()), None
 
     @rpyc.exposed
-    def eval_test(self, test_id: str) -> Tuple[Tuple[bool, str], Optional[Dict[str, Any]]]:
+    def eval_test(self, test_id: str, inst_mask: Dict[str, bool]) -> Tuple[Tuple[bool, str], Optional[Dict[str, Any]]]:
         try:
             assert self.engine is not None, "should register FUT before test"
             test_content = self.test_versions[test_id]
             with CaptureOutput() as (stdout, stderr):
                 try:
                     # WARNING: the coverage returned is only the summary, the full cov should be stored in result dir
-                    logs = self.engine.eval_tests({test_id: test_content})[test_id]
+                    logs = self.engine.eval_tests({test_id: test_content},
+                                                  inst_masks={test_id:inst_mask})[test_id]
 
                     return (True, ''), {"output": stdout.getvalue().strip(), 
                             "error": stderr.getvalue().strip(), 
@@ -152,14 +136,15 @@ class R2EService(rpyc.Service):
             return (False, traceback.format_exc()), None
 
     @rpyc.exposed
-    def eval_patch(self, patch_id: str, test_id: str) -> Tuple[Tuple[bool, str], Optional[Dict[str, Any]]]:
+    def eval_patch(self, patch_id: str, test_id: str, inst_mask: Dict[str, bool]) -> Tuple[Tuple[bool, str], Optional[Dict[str, Any]]]:
         try:
             assert self.engine is not None, "should register FUT before test"
             with CaptureOutput() as (stdout, stderr):
                 try:
                     # WARNING: the coverage returned is only the summary, the full cov should be stored in result dir
                     logs = self.engine.eval_patch({test_id: self.test_versions[test_id]}, 
-                                                  patch_id, patch_path=self.fut_paths[patch_id])[test_id]
+                                                  inst_masks={test_id: inst_mask},
+                                                  patch_version=patch_id, patch_path=self.fut_paths[patch_id])[test_id]
 
                     return (True, ''), {"output": stdout.getvalue().strip(), 
                             "error": stderr.getvalue().strip(), 
@@ -170,47 +155,6 @@ class R2EService(rpyc.Service):
                             "output": stdout.getvalue().strip()}
         except:
             return (False, traceback.format_exc()), None
-
-    @rpyc.exposed
-    def register_perf(self,
-                      perf_content: str,
-                      _perf_type: str = 'latency',
-                      perf_id: Optional[str] = None,
-                      imm_eval: bool = False) -> Tuple[Tuple[bool, str], Optional[Dict[str, str]]]:
-        try:
-            def _get_perf_id(self) -> str:
-                return f"perf_{len(self.test_versions)}"
-            perf_type = PerfTypes[_perf_type.upper()]
-            perf_id = perf_id or _get_perf_id(self)
-            self.perf_versions[perf_id] = (perf_type, perf_content)
-            # TODO: should run the test on ref to get a initial eval result
-            if imm_eval:
-                raise NotImplementedError
-            return (True, ''), None
-        except:
-            return (False, traceback.format_exc()), None
-
-    @rpyc.exposed
-    def eval_perf(self, perf_id: str) -> Tuple[Tuple[bool, str], Optional[Dict[str, Any]]]:
-        try:
-            raise NotImplementedError
-            assert self.engine is not None, "should register FUT before test"
-            test_content = self.test_versions[test_id]
-            with CaptureOutput() as (stdout, stderr):
-                try:
-                    # WARNING: the coverage returned is only the summary, the full cov should be stored in result dir
-                    logs = self.engine.eval_tests({test_id: test_content})[test_id]
-
-                    return (True, ''), {"output": stdout.getvalue().strip(), 
-                            "error": stderr.getvalue().strip(), 
-                            "logs": logs}
-
-                except Exception:
-                    return (True, ''), {"error": f"Error: {traceback.format_exc()}\n\nSTDERR: {stderr.getvalue().strip()}",
-                            "output": stdout.getvalue().strip()}
-        except:
-            return (False, traceback.format_exc()), None
-
 
     @rpyc.exposed
     def execute(self, command: str) -> Tuple[Tuple[bool, str], Optional[Dict[str, Any]]]:

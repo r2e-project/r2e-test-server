@@ -8,21 +8,21 @@ class R2ETestLoader:
 
     @staticmethod
     def load_tests(
-        test_cases: Dict[str, str], funclass_names: List[str], nspace: Dict[str, Any]
+        test_classes: Dict[str, str], funclass_names: List[str], nspace: Dict[str, Any]
     ) -> Tuple[Dict[str, TestSuite], Dict[str, Any]]:
         """Load the test cases into test suites."""
 
         test_suites = {}
 
-        for test_id, test_case in test_cases.items():
-            test_suite = R2ETestLoader.load_test(test_case, funclass_names, nspace)
+        for test_id, test_class in test_classes.items():
+            test_suite = R2ETestLoader.load_test(test_class, funclass_names, nspace)
             test_suites[test_id] = test_suite
 
         return test_suites, nspace
 
     @staticmethod
     def load_test(
-        test_case: str, funclass_names: List[str], nspace: Dict[str, Any]
+        test_class: str, funclass_names: List[str], nspace: Dict[str, Any]
     ) -> TestSuite:
         """Load a test case into a test suite and add it to the namespace."""
 
@@ -30,15 +30,15 @@ class R2ETestLoader:
             ref_name = f"reference_{funclass_name}"
 
             try:
-                test_case = R2ETestCleaner.clean_test_case(
-                    test_case, funclass_name, ref_name
+                test_class= R2ETestCleaner.clean_test_case(
+                    test_class, funclass_name, ref_name
                 )
             except Exception as e:
                 print("[ERROR] Could not load test case!")
                 raise
 
         try:
-            R2ETestLoader.add_test_to_namespace(test_case, nspace)
+            R2ETestLoader.add_test_to_namespace(test_class, nspace)
 
             test_suite, test_classes = R2ETestLoader.create_test_suite(nspace)
             R2ETestLoader.clean_namespace(nspace, test_classes)
@@ -48,13 +48,13 @@ class R2ETestLoader:
         return test_suite
 
     @staticmethod
-    def add_test_to_namespace(test_case: str, nspace: Dict[str, Any]):
+    def add_test_to_namespace(test_class: str, nspace: Dict[str, Any]):
         """Add the test case to the namespace."""
-        exec(test_case, nspace, nspace)
+        exec(test_class, nspace, nspace)
 
     @staticmethod
     def create_test_suite(nspace: Dict[str, Any]) -> Tuple[TestSuite, List[str]]:
-        """Create a test suite from the test case."""
+        """Create a test suite from the test class."""
         loader, test_suite = TestLoader(), TestSuite()
         test_classes = []
 
