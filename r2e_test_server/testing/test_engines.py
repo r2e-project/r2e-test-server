@@ -1,19 +1,16 @@
-from enum import Enum, auto
-from io import StringIO
 import os, ast, sys, coverage, importlib, importlib.util
 from copy import deepcopy
-from typing import Any, Set, Union, List, Dict, Optional, Tuple, cast
+from typing import Any, Set, Union, List, Dict, Optional, Tuple
 from types import ModuleType, FunctionType
 from pathlib import Path
 
 
-from r2e_test_server.instrument.perf import ProfilerInstrumenter, TimeItInstrumenter
+from r2e_test_server.instrument import CaptureArgsInstrumenter, ProfilerInstrumenter, TimeItInstrumenter
 from r2e_test_server.testing.loader import R2ETestLoader
 from r2e_test_server.testing.runner import R2ETestRunner
 from r2e_test_server.ast.transformer import NameReplacer
 from r2e_test_server.testing.codecov import R2ECodeCoverage
 from r2e_test_server.modules.explorer import ModuleExplorer
-from r2e_test_server.instrument import Instrumenter, CaptureArgsInstrumenter
 from r2e_test_server.testing.util import ensure
 
 if sys.version_info < (3, 9):
@@ -270,7 +267,7 @@ class R2ETestEngine(object):
         with open(self.file_path, 'w') as f:
             f.write(self.orig_file_content)
 
-    def inst_code(self) -> None:
+    def inst_code(self):
         """Instrument the code under test."""
         instrumenters = InstrumenterSlots()
         for funclass_name in self.funclass_names:
@@ -279,14 +276,14 @@ class R2ETestEngine(object):
                 class_obj = self.get_funclass_object(class_name)
 
                 if class_obj:
-                    instrumenters.instrument_method(class_obj, method_name)
+                    class_obj = instrumenters.instrument_method(class_obj, method_name)
                     setattr(self.fut_module, class_name, class_obj)
 
             else:
                 funclass_object = self.get_funclass_object(funclass_name)
 
                 if funclass_object and not isinstance(funclass_object, type):
-                    instrumenters.instrument(funclass_object)
+                    funclass_object = instrumenters.instrument(funclass_object)
                     setattr(self.fut_module, funclass_name, funclass_object)
 
         self.instrumenters = instrumenters
@@ -328,7 +325,6 @@ class R2ETestEngine(object):
                 for test_id, (errors, stats, cov, arg_log) in map(lambda x: (x[0], _run_with_cov(x[0], x[1])), test_suites.items())}
 
     # helpers
-
     def get_fut_module(self, fut_path: str) -> Tuple[ModuleType, Dict[str, Any]]:
         """Dynamically import and retrieve the module containing the function under test.
         Also retrieve the dependencies of the module.

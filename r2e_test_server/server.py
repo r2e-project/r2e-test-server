@@ -69,12 +69,12 @@ class R2EService(rpyc.Service):
                 if self.verbose:
                     print('registration successful')
             except Exception:
-                reg_result = {
+                return (False, traceback.format_exc()), {
                     "error": f"Error: {traceback.format_exc()}\n\nSTDERR: {stderr.getvalue().strip()}",
                     "output": stdout.getvalue().strip()
                 }
 
-        return True, reg_result
+        return (True, ""), reg_result
 
     @rpyc.exposed
     def get_futs(self):

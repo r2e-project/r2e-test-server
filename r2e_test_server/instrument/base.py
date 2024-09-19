@@ -1,6 +1,4 @@
-import json
-import inspect
-import functools
+import inspect, functools
 
 
 class Instrumenter:
@@ -21,14 +19,12 @@ class Instrumenter:
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            if not self.switch:
-                return func(*args, **kwargs)
             self.current_frame = inspect.currentframe()
             if self.current_frame is not None:
                 self.previous_frame = self.current_frame.f_back
 
             self.before_call(func, *args, **kwargs)
-            self.output = self.call(func, args, kwargs)
+            self.output = self.call(func, args, kwargs) if self.switch else func(*args, **kwargs)
             self.after_call(func, *args, **kwargs)
             return self.output
 
