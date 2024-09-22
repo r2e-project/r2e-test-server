@@ -15,7 +15,11 @@ from r2e_test_server.testing.runner import R2ETestRunner
 from r2e_test_server.ast.transformer import NameReplacer
 from r2e_test_server.testing.codecov import R2ECodeCoverage
 from r2e_test_server.modules.explorer import ModuleExplorer
-from r2e_test_server.instrument import Instrumenter, CaptureArgsInstrumenter
+from r2e_test_server.instrument import (
+    Instrumenter,
+    CaptureArgsInstrumenter,
+    TimeItInstrumenter,
+)
 
 
 if sys.version_info < (3, 9):
@@ -51,6 +55,7 @@ class R2ETestProgram(object):
         self.file_path = os.path.join(self.repo_path, file_path)
         self.generated_tests = generated_tests
         self.codegen_mode = codegen_mode
+        self.perf_mode = True
 
         with open(self.file_path, "r") as file:
             self.orig_file_content = file.read()
@@ -129,7 +134,9 @@ class R2ETestProgram(object):
             str: JSON string containing the test results.
         """
         # instrument code and build namespace
-        instrumenter = CaptureArgsInstrumenter()
+        instrumenter = (
+            TimeItInstrumenter() if self.perf_mode else CaptureArgsInstrumenter()
+        )
         self.instrumentCode(instrumenter)
 
         # build namespace
@@ -137,14 +144,14 @@ class R2ETestProgram(object):
 
         # run tests
         run_test_errors, run_tests_logs, codecovs = self.runTests(nspace=nspace)
-        captured_arg_logs = instrumenter.get_logs()
+        instrumenter_logs = instrumenter.get_logs()
         coverage_logs = [codecov.report_coverage() for codecov in codecovs]
 
         result = {
             "run_test_errors": run_test_errors,
             "run_tests_logs": run_tests_logs,
             "coverage_logs": coverage_logs,
-            "captured_arg_logs": captured_arg_logs,
+            "instrumenter_logs": instrumenter_logs,
         }
 
         return json.dumps(result, indent=4)

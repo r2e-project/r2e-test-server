@@ -1,2 +1,3 @@
 from r2e_test_server.instrument.base import Instrumenter
 from r2e_test_server.instrument.arguments import CaptureArgsInstrumenter
+from r2e_test_server.instrument.perf import TimeItInstrumenter
