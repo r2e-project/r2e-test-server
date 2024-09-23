@@ -15,9 +15,10 @@ timeit.template = """def inner(_it, _timer{init}):
 
 
 class TimeItInstrumenter(Instrumenter):
-    def __init__(self):
+    def __init__(self, repetitions: int = 10):
         super().__init__()
         self.timing_logs: List[Dict[str, Any]] = []
+        self.repetitions = repetitions
 
     def instrument(self, func):
 
@@ -28,14 +29,18 @@ class TimeItInstrumenter(Instrumenter):
                 self.previous_frame = self.current_frame.f_back
 
             timer = timeit.Timer(lambda: func(*args, **kwargs))
-            duration, output = timer.timeit(number=1)
 
-            log_entry = {
-                "func_name": func.__name__,
-                "duration": duration,
-                "caller_info": self.caller_info(),
-            }
-            self.timing_logs.append(log_entry)
+            # TODO warmup rounds
+
+            for i in range(self.repetitions):
+                duration, output = timer.timeit(number=1)
+                log_entry = {
+                    "run_id": i + 1,
+                    "func_name": func.__name__,
+                    "duration": duration,
+                    "caller_info": self.caller_info(),
+                }
+                self.timing_logs.append(log_entry)
 
             return output
 
