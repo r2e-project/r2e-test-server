@@ -15,7 +15,7 @@ timeit.template = """def inner(_it, _timer{init}):
 
 
 class TimeItInstrumenter(Instrumenter):
-    def __init__(self, repetitions: int = 10):
+    def __init__(self, repetitions: int = 5):
         super().__init__()
         self.timing_logs: List[Dict[str, Any]] = []
         self.repetitions = repetitions
