@@ -1,14 +1,18 @@
-import json
-import inspect
-import functools
+import inspect, functools
 
 
 class Instrumenter:
+    switch: bool = False
     def __init__(self):
         self.current_frame = None
         self.previous_frame = None
         self.output = None
-        pass
+
+    def call(self, func, args, kwargs):
+        return func(*args, **kwargs)
+
+    def set(self, flag: bool):
+        self.switch = flag
 
     def instrument(self, func):
         """Wrap the given function with the instrumentation logic."""
@@ -20,11 +24,14 @@ class Instrumenter:
                 self.previous_frame = self.current_frame.f_back
 
             self.before_call(func, *args, **kwargs)
-            self.output = func(*args, **kwargs)
+            self.output = self.call(func, args, kwargs) if self.switch else func(*args, **kwargs)
             self.after_call(func, *args, **kwargs)
             return self.output
 
         return wrapper
+
+    def clear(self):
+        self.output = None
 
     def instrument_method(self, class_obj, method):
         """Wrap the given method with the instrumentation logic."""

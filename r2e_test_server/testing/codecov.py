@@ -30,6 +30,13 @@ class R2ECodeCoverage(object):
 
         return metrics
 
+    def dump_to(self, file_name):
+        """dump raw cov to a file"""
+        self.cov.load()
+        self.cov.json_report(outfile=file_name)
+
+    # TODO: modify this to give precise cov information
+    # should be a good idea to mount the whole FUT folder into docker, but only allow modification of one file
     def get_line_metrics(self) -> Dict:
         """Get the line coverage metrics for the FUT."""
         num_executable_lines = len(self.executable_lines)
