@@ -96,6 +96,8 @@ class ModuleExplorer:
         ]
 
         dependencies = {}
+        package_name = ModuleExplorer.get_package_name(path_to_module)
+
         for imp in imports:
             if isinstance(imp, ast.Import):
                 for alias in imp.names:
@@ -114,11 +116,20 @@ class ModuleExplorer:
             elif isinstance(imp, ast.ImportFrom):
                 module_name = imp.module
 
-                assert module_name is not None, "Module name None (ImportFrom)?"
+                if module_name is None:
+                    module_name = package_name
 
                 if imp.level > 0:
-                    package_name = ModuleExplorer.get_package_name(path_to_module)
-                    module_name = ".".join([package_name, module_name])
+                    parts = package_name.split(".")
+
+                    # NOTE the first `len(parts) - imp.level` parts of current package
+                    # gives the package from which the import is being made
+                    # + append the module name to get the full module name
+
+                    if imp.level <= len(parts):
+                        module_name = ".".join(parts[: -imp.level] + [module_name])
+                    else:
+                        raise ValueError("Invalid relative import")
 
                 # try to import the module and get the object
                 try:
