@@ -118,7 +118,7 @@ class R2EServer:
         if not server.is_restored():
             server.restore()
         server.stop()
-        #conn.close()
+        conn.close()
 
     class Helper:
         @staticmethod
