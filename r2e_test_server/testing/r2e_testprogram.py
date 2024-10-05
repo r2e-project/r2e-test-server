@@ -142,7 +142,7 @@ class R2ETestProgram(object):
 
         result = {
             "run_tests_logs": run_tests_logs,
-            "run_tests_errors": run_test_errors,
+            "run_tests_errors": run_tests_errors,
             "coverage_logs": coverage_logs,
             "captured_arg_logs": captured_arg_logs,
         }
