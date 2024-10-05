@@ -48,6 +48,9 @@ class R2ECodeCoverage(object):
             "num_excluded_lines": num_excluded_lines,
             "num_unexecuted_lines": num_unexec_lines,
             "line_coverage_percentage": line_cov_perc,
+            "start_line": self.fut_first_line,
+            "end_line": self.fut_last_line,
+            "unexecuted_lines": self.unexecuted_lines,
         }
 
         return coverage_metrics
@@ -68,6 +71,7 @@ class R2ECodeCoverage(object):
             "num_executed_branches": num_executed_branches,
             "num_missing_branches": num_missing_branches,
             "branch_coverage_percentage": branch_cov_perc,
+            "unevaluated_branches": self.missing_branches,
         }
 
         return branch_coverage_metrics
